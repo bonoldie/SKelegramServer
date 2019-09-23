@@ -9,8 +9,9 @@ void initialize();
 int bindAndListen(int *socketFD, SOCKETADDRIN *address);
 void *handleConnection(void *socket);
 void addMessageToThreads(std::string message);
+std::string getConnectionIPAndPort(int socket);
 
-std::map<int,std::vector<std::string>> threadData = {};
+std::map<int, std::vector<std::string>> threadData = {};
 
 int main()
 {
@@ -34,6 +35,7 @@ int main()
     while (1)
     {
         clientSockets[threadCounter] = accept(serverSocketFD, (struct sockaddr *)&listeningAddress, (socklen_t *)&addressSize);
+        fcntl(clientSockets[threadCounter], F_SETFL, O_NONBLOCK);
 
         if (clientSockets[threadCounter] > 0)
         {
@@ -90,16 +92,39 @@ int bindAndListen(int *socketFD, SOCKETADDRIN *address)
 
 void *handleConnection(void *socket)
 {
-    ML::log_info("Client connected ",TARGET_ALL);
-
-    char buffer[1000];
+    char buffer[10];
     int clientSocket = *((int *)socket);
+
+    ML::log_info(std::string("Client connected ") + getConnectionIPAndPort(clientSocket), TARGET_ALL);
+
+    std::string receivedMessage;
 
     while (1)
     {
-        while (read(clientSocket, &buffer, 1000) > 0)
+        receivedMessage.clear();
+
+        bool isReceiving = recv(clientSocket, &buffer, 1, 0);
+
+        if(isReceiving){
+            receivedMessage += buffer[0];
+        }
+        
+        while (isReceiving)
         {
-            addMessageToThreads(std::string(buffer));
+            while (int size = recv(clientSocket, &buffer, 1, 0) > 0)
+            {
+                if (size == 1)
+                {
+                    receivedMessage += buffer[0];
+                }
+                isReceiving = receivedMessage.find("&(end)&") == std::string::npos;
+            }
+        }
+
+        if (!receivedMessage.empty())
+        {
+            ML::log_info(receivedMessage, TARGET_ALL);
+            addMessageToThreads(receivedMessage);
         }
 
         while (threadData[clientSocket].size() > 0)
@@ -110,9 +135,27 @@ void *handleConnection(void *socket)
     }
 }
 
-
-void addMessageToThreads(std::string message){
-    for(std::map<int,std::vector<std::string>>::iterator it = threadData.begin();it != threadData.end();it++){
+void addMessageToThreads(std::string message)
+{
+    for (std::map<int, std::vector<std::string>>::iterator it = threadData.begin(); it != threadData.end(); it++)
+    {
         it->second.push_back(message);
     }
+}
+
+std::string getConnectionIPAndPort(int socket)
+{
+    socklen_t len;
+    struct sockaddr_storage address;
+    char IP[INET_ADDRSTRLEN];
+    int port;
+
+    len = sizeof address;
+    getpeername(socket, (struct sockaddr *)&address, &len);
+
+    struct sockaddr_in *s = (struct sockaddr_in *)&address;
+    port = ntohs(s->sin_port);
+    inet_ntop(AF_INET, &s->sin_addr, IP, sizeof(IP));
+
+    return std::string(std::string(IP) + std::string(" :: ") + std::to_string(s->sin_port));
 }

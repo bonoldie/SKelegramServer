@@ -4,16 +4,18 @@ void ConnectionThreadPool::addConnectionThread(int clientSocket)
 {
     clientSockets[thID] = clientSocket;
     pthread_create(&connectionThreads[thID], NULL, (THREADFUNCPTR)&ConnectionThreadPool::handleConnection, &thID);
+    threadMessages[thID] = {};
 
     thID++;
 }
 
-// Start a new thread to handle a connection with a client  
-// @param socket the client socket 
-void *ConnectionThreadPool::handleConnection(void *socket)
+// Start a new thread to handle a connection with a client
+// @param socket the client socket
+void *ConnectionThreadPool::handleConnection(void *thID)
 {
     char buffer[10];
-    int clientSocket = *((int *)socket);
+    int parsedThID = *((int *)thID);
+    int clientSocket = clientSockets[parsedThID];
 
     ML::log_info(std::string("Client connected ") + ConnectionThreadPool::getConnectionIPAndPort(clientSocket), TARGET_ALL);
 
@@ -25,10 +27,11 @@ void *ConnectionThreadPool::handleConnection(void *socket)
 
         bool isReceiving = recv(clientSocket, &buffer, 1, 0);
 
-        if(isReceiving){
+        if (isReceiving)
+        {
             receivedMessage += buffer[0];
         }
-        
+
         while (isReceiving)
         {
             while (int size = recv(clientSocket, &buffer, 1, 0) > 0)
@@ -44,14 +47,22 @@ void *ConnectionThreadPool::handleConnection(void *socket)
         if (!receivedMessage.empty())
         {
             ML::log_info(receivedMessage, TARGET_ALL);
-            //addMessageToThreads(receivedMessage);
+            addMessageToThreads(receivedMessage);
         }
 
-        while (threadData[clientSocket].size() > 0)
+        while (threadMessages[parsedThID].size() > 0)
         {
-            send(clientSocket, threadData[clientSocket].front().c_str(), strlen(threadData[clientSocket].front().c_str()), 0);
-            threadData[clientSocket].erase(threadData[clientSocket].begin());
+            send(clientSocket, threadMessages[parsedThID].front().c_str(), strlen(threadMessages[parsedThID].front().c_str()), 0);
+            threadMessages[parsedThID].erase(threadMessages[parsedThID].begin());
         }
+    }
+}
+
+void ConnectionThreadPool::addMessageToThreads(std::string message)
+{
+    for (int i = 0; i < threadMessages.size(); i++)
+    {
+        threadMessages[i].push_back(message);
     }
 }
 

@@ -2,8 +2,10 @@
 #define SERVER_H
 
 #include "../Includer.hpp"
+#include "./ConnectionThread.hpp"
 
 #define DEFAULT_PORT 45678
+
 
 typedef struct sockaddr_in SOCKETADDRIN;
 
@@ -14,10 +16,16 @@ public:
     ~Server() = default;
 
     void initialize();
-    int bindAndListen(int *socketFD, SOCKETADDRIN *address);
+    int bindAndListen();
+    void startAccept();
 
 private:
+    int serverSocketFD;
+    SOCKETADDRIN listeningAddress;
     int port; 
+
+    ConnectionThreadPool *threadPool;
+
 };
 
 #endif

@@ -5,12 +5,16 @@ void Server::initialize()
     ML::initialize("socketChat.log");
 
     ML::log_info("Socket Chat loggin system initialized", TARGET_ALL);
+
+    threadPool = new ConnectionThreadPool();
+
+    serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
 }
 
-int Server::bindAndListen(int *socketFD, SOCKETADDRIN *address)
+int Server::bindAndListen()
 {
     int temp = 1;
-    if (*socketFD < 0 || setsockopt(*socketFD, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &temp, sizeof(temp)) < 0)
+    if (serverSocketFD < 0 || setsockopt(serverSocketFD, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &temp, sizeof(temp)) < 0)
     {
         ML::log_fatal(std::string("Cannot create new socket with current IP or port !"), TARGET_ALL);
         return -1;
@@ -19,11 +23,11 @@ int Server::bindAndListen(int *socketFD, SOCKETADDRIN *address)
     ML::log_info("Server socket created", TARGET_ALL);
 
     // Building address (SOCKETADDRIN) for listeninig
-    address->sin_addr.s_addr = INADDR_ANY;
-    address->sin_port = htons(port);
-    address->sin_family = AF_INET;
+    listeningAddress.sin_addr.s_addr = INADDR_ANY;
+    listeningAddress.sin_port = htons(port);
+    listeningAddress.sin_family = AF_INET;
 
-    if (bind(*socketFD, (struct sockaddr *)address, sizeof(*address)) < 0 || listen(*socketFD, 8) < 0)
+    if (bind(serverSocketFD, (struct sockaddr *)&listeningAddress, sizeof(listeningAddress)) < 0 || listen(serverSocketFD, 8) < 0)
     {
         ML::log_fatal("Binding or Listening failed", TARGET_ALL);
         return -1;
@@ -34,67 +38,17 @@ int Server::bindAndListen(int *socketFD, SOCKETADDRIN *address)
     return 1;
 }
 
-// Start a new thread to handle a connection with a client  
-// @param socket the client socket 
-void *Server::handleConnection(void *socket)
+void Server::startAccept()
 {
-    char buffer[10];
-    int clientSocket = *((int *)socket);
-
-    ML::log_info(std::string("Client connected ") + getConnectionIPAndPort(clientSocket), TARGET_ALL);
-
-    std::string receivedMessage;
-
+    int addressSize = sizeof(listeningAddress);
     while (1)
     {
-        receivedMessage.clear();
+        int clientSocket = accept(serverSocketFD, (struct sockaddr *)&listeningAddress, (socklen_t *)&addressSize);
+        fcntl(clientSocket, F_SETFL, O_NONBLOCK);
 
-        bool isReceiving = recv(clientSocket, &buffer, 1, 0);
-
-        if(isReceiving){
-            receivedMessage += buffer[0];
-        }
-        
-        while (isReceiving)
+        if (clientSocket > 0)
         {
-            while (int size = recv(clientSocket, &buffer, 1, 0) > 0)
-            {
-                if (size == 1)
-                {
-                    receivedMessage += buffer[0];
-                }
-                isReceiving = receivedMessage.find("&(end)&") == std::string::npos;
-            }
-        }
-
-        if (!receivedMessage.empty())
-        {
-            ML::log_info(receivedMessage, TARGET_ALL);
-            addMessageToThreads(receivedMessage);
-        }
-
-        while (threadData[clientSocket].size() > 0)
-        {
-            send(clientSocket, threadData[clientSocket].front().c_str(), strlen(threadData[clientSocket].front().c_str()), 0);
-            threadData[clientSocket].erase(threadData[clientSocket].begin());
+            threadPool->addConnectionThread(clientSocket);
         }
     }
-}
-
-
-std::string Server::getConnectionIPAndPort(int socket)
-{
-    socklen_t len;
-    struct sockaddr_storage address;
-    char IP[INET_ADDRSTRLEN];
-    int port;
-
-    len = sizeof address;
-    getpeername(socket, (struct sockaddr *)&address, &len);
-
-    struct sockaddr_in *s = (struct sockaddr_in *)&address;
-    port = ntohs(s->sin_port);
-    inet_ntop(AF_INET, &s->sin_addr, IP, sizeof(IP));
-
-    return std::string(std::string(IP) + std::string(" :: ") + std::to_string(s->sin_port));
 }

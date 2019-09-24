@@ -8,6 +8,8 @@ void Server::initialize()
 
     threadPool = new ConnectionThreadPool();
 
+    pthread_create(&broadcastThread,NULL,broadcastRoutine,(void *)threadPool);
+
     serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
 }
 
@@ -43,14 +45,33 @@ void Server::startAccept()
     int addressSize = sizeof(listeningAddress);
     while (1)
     {
-        
+
         int clientSocket = accept(serverSocketFD, (struct sockaddr *)&listeningAddress, (socklen_t *)&addressSize);
         fcntl(clientSocket, F_SETFL, O_NONBLOCK);
 
         if (clientSocket > 0)
         {
-            
+
             threadPool->addConnectionThread(clientSocket);
+        }
+    }
+}
+
+void *broadcastRoutine(void *connectionThreadPool)
+{
+    ConnectionThreadPool *connThPool = (ConnectionThreadPool *)connectionThreadPool;
+
+    while (1)
+    {
+        for (ConnectionData data : connThPool->connectionsData)
+        {
+            for (auto receivedMessage : data.receivedBuffer)
+            {
+                for (ConnectionData data : connThPool->connectionsData)
+                {
+                    data.toSendBuffer.push_back(receivedMessage);
+                }
+            }
         }
     }
 }

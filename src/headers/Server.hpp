@@ -6,8 +6,9 @@
 
 #define DEFAULT_PORT 45678
 
-
 typedef struct sockaddr_in SOCKETADDRIN;
+
+void *broadcastRoutine(void *connectionThreadPool);
 
 class Server {
 public:
@@ -19,13 +20,13 @@ public:
     int bindAndListen();
     void startAccept();
 
+    ConnectionThreadPool *threadPool;
 private:
     int serverSocketFD;
     SOCKETADDRIN listeningAddress;
     int port; 
-
-    ConnectionThreadPool *threadPool;
-
+    
+    pthread_t broadcastThread;
 };
 
 #endif

@@ -2,51 +2,43 @@
 
 ConnectionThreadPool::ConnectionThreadPool()
 {
-    for (int i = 0; i < MAXCONNECTIONS; i++)
-    {
-        IDs[i] = i + 1;
-    }
+    
 }
 
 void ConnectionThreadPool::addConnectionThread(int clientSocket)
 {
-    clientSockets[thID] = clientSocket;
+    ConnectionData connectionData;
+    connectionData.clientSocket = clientSocket;
+    connectionsData[index] = connectionData;
 
-    int *arg = (int*)malloc(sizeof(*arg));
-    
-    pthread_create(&connectionThreads[thID], NULL, (THREADFUNCPTR)&ConnectionThreadPool::handleConnection, (void*)&thID);
-    threadMessages[thID] = {};
-    thID = IDs[thID];
+    pthread_create(&threads[index], NULL, handleConnection, (void *)&connectionsData[index]);
+
+    index++;
+    threadCounter++;
 }
 
-// Start a new thread to handle a connection with a client
-// @param socket the client socket
-void *ConnectionThreadPool::handleConnection(void *thIDt)
+void *handleConnection(void *connectionData)
 {
+
+    ConnectionData *threadData = (ConnectionData *)connectionData;
+
+    ML::log_info(std::string("Client connected ") + ConnectionThreadPool::getConnectionIPAndPort(threadData->clientSocket), TARGET_ALL);
+
     char buffer[10];
-    if((int *)thIDt == nullptr){
-        exit(1);
-    }
-    int parsedThID = *((int *)thIDt);
-    int clientSocket = clientSockets[parsedThID];
- 
-    ML::log_info(std::string("Client connected ") + ConnectionThreadPool::getConnectionIPAndPort(clientSocket), TARGET_ALL);
     std::string receivedMessage;
-    
+
     while (1)
     {
         receivedMessage.clear();
 
-        bool isReceiving = recv(clientSocket, &buffer, 1, 0);
-
+        bool isReceiving = recv(threadData->clientSocket, &buffer, 1, 0);
         if (isReceiving)
         {
             receivedMessage += buffer[0];
         }
-
         while (isReceiving)
         {
-            while (int size = recv(clientSocket, &buffer, 1, 0) > 0)
+            while (int size = recv(threadData->clientSocket, &buffer, 1, 0) > 0)
             {
                 if (size == 1)
                 {
@@ -55,26 +47,16 @@ void *ConnectionThreadPool::handleConnection(void *thIDt)
                 isReceiving = receivedMessage.find("&(end)&") == std::string::npos;
             }
         }
-
         if (!receivedMessage.empty())
         {
             ML::log_info(receivedMessage, TARGET_ALL);
-            addMessageToThreads(receivedMessage);
+            threadData->receivedBuffer.push_back(receivedMessage);
         }
-
-        while (threadMessages[parsedThID].size() > 0)
+        while (threadData->toSendBuffer.size() > 0)
         {
-            send(clientSocket, threadMessages[parsedThID].front().c_str(), strlen(threadMessages[parsedThID].front().c_str()), 0);
-            threadMessages[parsedThID].erase(threadMessages[parsedThID].begin());
+            send(threadData->clientSocket, threadData->toSendBuffer.front().c_str(), strlen(threadData->toSendBuffer.front().c_str()), 0);
+            threadData->toSendBuffer.erase(threadData->toSendBuffer.begin());
         }
-    }
-}
-
-void ConnectionThreadPool::addMessageToThreads(std::string message)
-{
-    for (int i = 0; i < threadMessages.size(); i++)
-    {
-        threadMessages[i].push_back(message);
     }
 }
 

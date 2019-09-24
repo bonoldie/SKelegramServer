@@ -43,11 +43,13 @@ void Server::startAccept()
     int addressSize = sizeof(listeningAddress);
     while (1)
     {
+        
         int clientSocket = accept(serverSocketFD, (struct sockaddr *)&listeningAddress, (socklen_t *)&addressSize);
         fcntl(clientSocket, F_SETFL, O_NONBLOCK);
 
         if (clientSocket > 0)
         {
+            
             threadPool->addConnectionThread(clientSocket);
         }
     }

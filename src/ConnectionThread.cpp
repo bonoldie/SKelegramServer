@@ -1,26 +1,38 @@
 #include "./headers/ConnectionThread.hpp"
 
+ConnectionThreadPool::ConnectionThreadPool()
+{
+    for (int i = 0; i < MAXCONNECTIONS; i++)
+    {
+        IDs[i] = i + 1;
+    }
+}
+
 void ConnectionThreadPool::addConnectionThread(int clientSocket)
 {
     clientSockets[thID] = clientSocket;
-    pthread_create(&connectionThreads[thID], NULL, (THREADFUNCPTR)&ConnectionThreadPool::handleConnection, &thID);
-    threadMessages[thID] = {};
 
-    thID++;
+    int *arg = (int*)malloc(sizeof(*arg));
+    
+    pthread_create(&connectionThreads[thID], NULL, (THREADFUNCPTR)&ConnectionThreadPool::handleConnection, (void*)&thID);
+    threadMessages[thID] = {};
+    thID = IDs[thID];
 }
 
 // Start a new thread to handle a connection with a client
 // @param socket the client socket
-void *ConnectionThreadPool::handleConnection(void *thID)
+void *ConnectionThreadPool::handleConnection(void *thIDt)
 {
     char buffer[10];
-    int parsedThID = *((int *)thID);
+    if((int *)thIDt == nullptr){
+        exit(1);
+    }
+    int parsedThID = *((int *)thIDt);
     int clientSocket = clientSockets[parsedThID];
-
+ 
     ML::log_info(std::string("Client connected ") + ConnectionThreadPool::getConnectionIPAndPort(clientSocket), TARGET_ALL);
-
     std::string receivedMessage;
-
+    
     while (1)
     {
         receivedMessage.clear();

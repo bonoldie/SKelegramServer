@@ -2,8 +2,8 @@
 #define CONNECTIONTHREAD_H
 
 #include "../Includer.hpp"
+
 #define MAXCONNECTIONS 255
-typedef void *(*THREADFUNCPTR)(void *);
 
 struct ConnectionData
 {
@@ -25,8 +25,9 @@ public:
 
     static std::string getConnectionIPAndPort(int socket);
 
-    std::array<ConnectionData, MAXCONNECTIONS> connectionsData;
+    void clearRecData();
 
+    std::vector<ConnectionData> connectionsData;
 private:
     std::array<pthread_t, MAXCONNECTIONS> threads;
 

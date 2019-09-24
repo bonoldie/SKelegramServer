@@ -2,16 +2,15 @@
 
 ConnectionThreadPool::ConnectionThreadPool()
 {
-    
 }
 
 void ConnectionThreadPool::addConnectionThread(int clientSocket)
 {
     ConnectionData connectionData;
     connectionData.clientSocket = clientSocket;
-    connectionsData[index] = connectionData;
+    connectionsData.push_back(connectionData);
 
-    pthread_create(&threads[index], NULL, handleConnection, (void *)&connectionsData[index]);
+    pthread_create(&threads[index], NULL, handleConnection, (void *)&connectionsData.back());
 
     index++;
     threadCounter++;
@@ -32,10 +31,7 @@ void *handleConnection(void *connectionData)
         receivedMessage.clear();
 
         bool isReceiving = recv(threadData->clientSocket, &buffer, 1, 0);
-        if (isReceiving)
-        {
-            receivedMessage += buffer[0];
-        }
+
         while (isReceiving)
         {
             while (int size = recv(threadData->clientSocket, &buffer, 1, 0) > 0)
@@ -49,14 +45,22 @@ void *handleConnection(void *connectionData)
         }
         if (!receivedMessage.empty())
         {
-            ML::log_info(receivedMessage, TARGET_ALL);
             threadData->receivedBuffer.push_back(receivedMessage);
+            ML::log_info(std::string("Rec ... ") + std::string(threadData->receivedBuffer.back()), TARGET_ALL);
         }
+
         while (threadData->toSendBuffer.size() > 0)
         {
             send(threadData->clientSocket, threadData->toSendBuffer.front().c_str(), strlen(threadData->toSendBuffer.front().c_str()), 0);
+            ML::log_info(std::string("Sending ... ") + std::string(threadData->toSendBuffer.front()), TARGET_ALL);
             threadData->toSendBuffer.erase(threadData->toSendBuffer.begin());
         }
+    }
+}
+
+void ConnectionThreadPool::clearRecData(){
+    for(int i = 0;i < connectionsData.size();i++ ){
+        connectionsData[i].receivedBuffer.clear();
     }
 }
 

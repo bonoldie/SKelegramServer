@@ -8,7 +8,7 @@ void Server::initialize()
 
     threadPool = new ConnectionThreadPool();
 
-    pthread_create(&broadcastThread,NULL,broadcastRoutine,(void *)threadPool);
+    pthread_create(&broadcastThread, NULL, broadcastRoutine, (void *)threadPool);
 
     serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
 }
@@ -61,17 +61,30 @@ void *broadcastRoutine(void *connectionThreadPool)
 {
     ConnectionThreadPool *connThPool = (ConnectionThreadPool *)connectionThreadPool;
 
+    std::vector<std::string> toSend;
+
     while (1)
     {
-        for (ConnectionData data : connThPool->connectionsData)
+
+        for (auto connectionData : connThPool->connectionsData)
         {
-            for (auto receivedMessage : data.receivedBuffer)
+            for (auto message : connectionData.receivedBuffer)
             {
-                for (ConnectionData data : connThPool->connectionsData)
-                {
-                    data.toSendBuffer.push_back(receivedMessage);
-                }
+                toSend.push_back(message);
             }
         }
+
+        for (std::string toSendMessage : toSend)
+        {
+            for (int index = 0; index < connThPool->connectionsData.size(); index++){
+                connThPool->connectionsData.at(index).toSendBuffer.push_back(toSendMessage);
+            }
+        }
+
+        connThPool->clearRecData();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+        toSend.clear();
     }
 }

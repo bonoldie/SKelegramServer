@@ -1094,3 +1094,6 @@ J*°
 &(end)&
 [ 2019-09-23 23:38:07 ] < INFO > Giacomo: d
 &(end)&
+[ 2019-09-24 09:07:19 ] < INFO > Socket Chat loggin system initialized
+[ 2019-09-24 09:07:19 ] < INFO > Server socket created
+[ 2019-09-24 09:07:19 ] < INFO > Listening for connections at port 45678

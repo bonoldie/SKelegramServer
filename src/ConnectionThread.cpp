@@ -18,49 +18,51 @@ void ConnectionThreadPool::addConnectionThread(int clientSocket)
 
 void *handleConnection(void *connectionData)
 {
-
     ConnectionData *threadData = (ConnectionData *)connectionData;
 
     ML::log_info(std::string("Client connected ") + ConnectionThreadPool::getConnectionIPAndPort(threadData->clientSocket), TARGET_ALL);
 
-    char buffer[10];
-    std::string receivedMessage;
+    std::string incomingMessageStream = "";
+
+    threadData->messageAvailable = false;
+    char charBuffer[1];
+
+    bool isReceiving;
 
     while (1)
     {
-        receivedMessage.clear();
-
-        bool isReceiving = recv(threadData->clientSocket, &buffer, 1, 0);
-
-        while (isReceiving)
+        if (!threadData->messageAvailable)
         {
-            while (int size = recv(threadData->clientSocket, &buffer, 1, 0) > 0)
+            if ((isReceiving = read(threadData->clientSocket, &charBuffer, 1)) > 0)
             {
-                if (size == 1)
+
+                incomingMessageStream = std::string(charBuffer);
+
+                while (isReceiving)
                 {
-                    receivedMessage += buffer[0];
+                    if ((read(threadData->clientSocket, &charBuffer, 1)) > 0)
+                    {
+                        incomingMessageStream = incomingMessageStream + std::string(charBuffer);
+                    }
+                    isReceiving = incomingMessageStream.find("&(end)&") == std::string::npos;
                 }
-                isReceiving = receivedMessage.find("&(end)&") == std::string::npos;
+
+                incomingMessageStream += '\0';
+                ML::log_info(std::string("Recived in temp : ") + incomingMessageStream, TARGET_ALL);
+
+                threadData->toSendBuffer.push_back(incomingMessageStream);
+
+                ML::log_info(std::string("Recived in data : ") + threadData->incomingMessages[0], TARGET_ALL);
+                threadData->messageAvailable = true;
             }
-        }
-        if (!receivedMessage.empty())
-        {
-            threadData->receivedBuffer.push_back(receivedMessage);
-            ML::log_info(std::string("Rec ... ") + std::string(threadData->receivedBuffer.back()), TARGET_ALL);
         }
 
         while (threadData->toSendBuffer.size() > 0)
         {
             send(threadData->clientSocket, threadData->toSendBuffer.front().c_str(), strlen(threadData->toSendBuffer.front().c_str()), 0);
-            ML::log_info(std::string("Sending ... ") + std::string(threadData->toSendBuffer.front()), TARGET_ALL);
+            ML::log_info(std::string("Sending : ") + threadData->toSendBuffer.front(), TARGET_ALL);
             threadData->toSendBuffer.erase(threadData->toSendBuffer.begin());
         }
-    }
-}
-
-void ConnectionThreadPool::clearRecData(){
-    for(int i = 0;i < connectionsData.size();i++ ){
-        connectionsData[i].receivedBuffer.clear();
     }
 }
 

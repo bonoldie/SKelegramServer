@@ -8,8 +8,9 @@
 struct ConnectionData
 {
     int clientSocket;
+    bool messageAvailable;
     std::vector<std::string> toSendBuffer;
-    std::vector<std::string> receivedBuffer;
+    std::array<std::string,1> incomingMessages;
 };
 
 void *handleConnection(void *connectionData);
@@ -24,8 +25,6 @@ public:
     void broadcastMessage(std::string message);
 
     static std::string getConnectionIPAndPort(int socket);
-
-    void clearRecData();
 
     std::vector<ConnectionData> connectionsData;
 private:

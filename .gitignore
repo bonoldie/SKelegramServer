@@ -1,6 +1,7 @@
 obj/*
 build/*
 *.log
+.vscode/*
 
 !obj/.gitkeep 
 !build/.gitkeep

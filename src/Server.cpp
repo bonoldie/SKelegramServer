@@ -61,30 +61,21 @@ void *broadcastRoutine(void *connectionThreadPool)
 {
     ConnectionThreadPool *connThPool = (ConnectionThreadPool *)connectionThreadPool;
 
-    std::vector<std::string> toSend;
-
     while (1)
     {
-
-        for (auto connectionData : connThPool->connectionsData)
+        for (int index = 0; index < connThPool->connectionsData.size(); index++)
         {
-            for (auto message : connectionData.receivedBuffer)
+            if (connThPool->connectionsData.at(index).messageAvailable)
             {
-                toSend.push_back(message);
+                ML::log_info(std::string("Sending ... ") + connThPool->connectionsData.at(index).incomingMessages[0], TARGET_ALL);
+
+                for (int _index = 0; _index < connThPool->connectionsData.size(); _index++)
+                {
+                    connThPool->connectionsData.at(_index).toSendBuffer.push_back(connThPool->connectionsData.at(index).incomingMessages[0]);
+                }
             }
+            connThPool->connectionsData.at(index).messageAvailable = false;
+            connThPool->connectionsData.at(index).incomingMessages[0] = "";
         }
-
-        for (std::string toSendMessage : toSend)
-        {
-            for (int index = 0; index < connThPool->connectionsData.size(); index++){
-                connThPool->connectionsData.at(index).toSendBuffer.push_back(toSendMessage);
-            }
-        }
-
-        connThPool->clearRecData();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-
-        toSend.clear();
     }
 }

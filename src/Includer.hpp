@@ -5,15 +5,15 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <netinet/in.h> 
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string>
 #include <map>
 #include <tuple>
 #include <utility>
- #include <fcntl.h>
- #include <thread>
-  #include <chrono>
+#include <fcntl.h>
+#include <thread>
+#include <chrono>
+#include <cstring>
 
 #include "../include/MLogger.hpp"
-

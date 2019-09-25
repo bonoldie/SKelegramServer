@@ -10,7 +10,8 @@ struct ConnectionData
     int clientSocket;
     bool messageAvailable;
     std::vector<std::string> toSendBuffer;
-    std::array<std::string,1> incomingMessages;
+    std::vector<std::string> temp;
+    std::string incomingMessage;
 };
 
 void *handleConnection(void *connectionData);

@@ -65,17 +65,18 @@ void *broadcastRoutine(void *connectionThreadPool)
     {
         for (int index = 0; index < connThPool->connectionsData.size(); index++)
         {
-            if (connThPool->connectionsData.at(index).messageAvailable)
+            if (connThPool->connectionsData.at(index).temp.size() > 0)
             {
-                ML::log_info(std::string("Sending ... ") + connThPool->connectionsData.at(index).incomingMessages[0], TARGET_ALL);
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
                 for (int _index = 0; _index < connThPool->connectionsData.size(); _index++)
                 {
-                    connThPool->connectionsData.at(_index).toSendBuffer.push_back(connThPool->connectionsData.at(index).incomingMessages[0]);
+                    connThPool->connectionsData.at(_index).toSendBuffer.push_back(connThPool->connectionsData.at(index).temp.back());
                 }
-            }
+            }          
+
+            connThPool->connectionsData.at(index).temp.clear();
             connThPool->connectionsData.at(index).messageAvailable = false;
-            connThPool->connectionsData.at(index).incomingMessages[0] = "";
         }
     }
 }

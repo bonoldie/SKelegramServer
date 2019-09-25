@@ -48,11 +48,9 @@ void *handleConnection(void *connectionData)
                 }
 
                 incomingMessageStream += '\0';
-                ML::log_info(std::string("Recived in temp : ") + incomingMessageStream, TARGET_ALL);
+                threadData->temp.push_back(incomingMessageStream);
 
-                threadData->toSendBuffer.push_back(incomingMessageStream);
-
-                ML::log_info(std::string("Recived in data : ") + threadData->incomingMessages[0], TARGET_ALL);
+                ML::log_info(std::string("Recived in data : ") + threadData->temp.back(), TARGET_ALL);
                 threadData->messageAvailable = true;
             }
         }

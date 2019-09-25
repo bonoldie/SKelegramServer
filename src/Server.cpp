@@ -65,9 +65,9 @@ void *broadcastRoutine(void *connectionThreadPool)
     {
         for (int index = 0; index < connThPool->connectionsData.size(); index++)
         {
-            if (connThPool->connectionsData.at(index).temp.size() > 0)
+            if (connThPool->connectionsData.at(index).temp.size() > 0 && !connThPool->connectionsData.at(index).temp.at(0).empty())
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                //std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
                 for (int _index = 0; _index < connThPool->connectionsData.size(); _index++)
                 {

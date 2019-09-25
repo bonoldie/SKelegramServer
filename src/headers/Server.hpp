@@ -8,7 +8,6 @@
 
 typedef struct sockaddr_in SOCKETADDRIN;
 
-void *broadcastRoutine(void *connectionThreadPool);
 void *chatRoutine(void *connectionThreadPool);
 
 class Server {

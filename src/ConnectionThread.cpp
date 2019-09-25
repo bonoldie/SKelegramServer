@@ -2,6 +2,7 @@
 
 ConnectionThreadPool::ConnectionThreadPool()
 {
+    pthread_create(&broadcastThread, NULL, broadcastRoutine, (void *)&connectionsData);
 }
 
 void ConnectionThreadPool::addConnectionThread(int clientSocket)
@@ -35,7 +36,7 @@ void *handleConnection(void *connectionData)
     {
         if (!threadData->messageAvailable)
         {
-            if ((isReceiving = read(threadData->clientSocket, &charBuffer, 1)) > 0)
+            if ((isReceiving = recv(threadData->clientSocket, &charBuffer, 1,0)) > 0)
             {
                 threadData->incomingMessage = std::string(charBuffer);
 
@@ -55,6 +56,8 @@ void *handleConnection(void *connectionData)
                 threadData->messageAvailable = true;
             }
         }
+
+
 
         while (threadData->toSendBuffer.size() > 0)
         {
@@ -82,3 +85,26 @@ std::string ConnectionThreadPool::getConnectionIPAndPort(int socket)
 
     return std::string(std::string(IP) + std::string(" :: ") + std::to_string(s->sin_port));
 }
+
+void *broadcastRoutine(void *connectionsData)
+{
+    std::vector<ConnectionData> *connsData = (std::vector<ConnectionData> *)connectionsData;
+
+    while (1)
+    {
+        for (int index = 0; index < connsData->size(); index++)
+        {
+            if (connsData->at(index).incomingMessage != "" && connsData->at(index).messageAvailable)
+            {
+                for (int _index = 0; _index < connsData->size(); _index++)
+                {
+                    connsData->at(_index).toSendBuffer.push_back(connsData->at(index).incomingMessage);
+                }
+
+                connsData->at(index).messageAvailable = false;
+            }
+        }
+    }
+}
+
+

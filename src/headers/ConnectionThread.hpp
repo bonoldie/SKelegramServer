@@ -15,6 +15,7 @@ struct ConnectionData
 };
 
 void *handleConnection(void *connectionData);
+void *broadcastRoutine(void *connectionsData);
 
 class ConnectionThreadPool
 {
@@ -30,6 +31,7 @@ public:
     std::vector<ConnectionData> connectionsData;
 private:
     std::array<pthread_t, MAXCONNECTIONS> threads;
+    pthread_t broadcastThread;
 
     int threadCounter = 0;
     int index = 0;

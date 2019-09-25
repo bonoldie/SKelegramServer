@@ -7,9 +7,7 @@ void Server::initialize()
     ML::log_info("Socket Chat loggin system initialized", TARGET_ALL);
 
     threadPool = new ConnectionThreadPool();
-
-    pthread_create(&broadcastThread, NULL, broadcastRoutine, (void *)threadPool);
-
+    
     serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
 }
 
@@ -55,27 +53,6 @@ void Server::startAccept()
     }
 }
 
-void *broadcastRoutine(void *connectionThreadPool)
-{
-    ConnectionThreadPool *connThPool = (ConnectionThreadPool *)connectionThreadPool;
-
-    while (1)
-    {
-        for (int index = 0; index < connThPool->connectionsData.size(); index++)
-        {
-            if (connThPool->connectionsData.at(index).incomingMessage != "" && connThPool->connectionsData.at(index).messageAvailable)
-            {
-                for (int _index = 0; _index < connThPool->connectionsData.size(); _index++)
-                {
-                    connThPool->connectionsData.at(_index).toSendBuffer.push_back(connThPool->connectionsData.at(index).incomingMessage);
-                }
-
-                connThPool->connectionsData.at(index).messageAvailable = false;
-            }          
-        }
-    }
-}
-
 void *chatRoutine(void *connectionThreadPool)
 {
     ConnectionThreadPool *connThPool = (ConnectionThreadPool *)connectionThreadPool;
@@ -84,8 +61,6 @@ void *chatRoutine(void *connectionThreadPool)
     {
         for (int index = 0; index < connThPool->connectionsData.size(); index++)
         {
-            
         }
     }
 }
-

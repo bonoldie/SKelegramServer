@@ -8,6 +8,7 @@ void ConnectionThreadPool::addConnectionThread(int clientSocket)
 {
     ConnectionData connectionData;
     connectionData.clientSocket = clientSocket;
+    
     connectionsData.push_back(connectionData);
 
     pthread_create(&threads[index], NULL, handleConnection, (void *)&connectionsData.back());
@@ -18,15 +19,16 @@ void ConnectionThreadPool::addConnectionThread(int clientSocket)
 
 void *handleConnection(void *connectionData)
 {
+    pthread_detach(pthread_self()); 
+
     ConnectionData *threadData = (ConnectionData *)connectionData;
 
     ML::log_info(std::string("Client connected ") + ConnectionThreadPool::getConnectionIPAndPort(threadData->clientSocket), TARGET_ALL);
 
-    std::string incomingMessageStream = "";
+    threadData->owner = pthread_self();
 
     threadData->messageAvailable = false;
     char charBuffer[1];
-
     bool isReceiving;
 
     while (1)
@@ -35,22 +37,21 @@ void *handleConnection(void *connectionData)
         {
             if ((isReceiving = read(threadData->clientSocket, &charBuffer, 1)) > 0)
             {
-
-                incomingMessageStream = std::string(charBuffer);
+                threadData->incomingMessage = std::string(charBuffer);
 
                 while (isReceiving)
                 {
                     if ((read(threadData->clientSocket, &charBuffer, 1)) > 0)
                     {
-                        incomingMessageStream = incomingMessageStream + std::string(charBuffer);
+                        threadData->incomingMessage = threadData->incomingMessage + std::string(charBuffer);
                     }
-                    isReceiving = incomingMessageStream.find("&(end)&") == std::string::npos;
+                    isReceiving = threadData->incomingMessage.find("&(end)&") == std::string::npos;
                 }
 
-                incomingMessageStream += '\0';
-                threadData->temp.push_back(incomingMessageStream);
+                threadData->incomingMessage += '\0';
 
-                ML::log_info(std::string("Recived in data : ") + threadData->temp.back(), TARGET_ALL);
+                ML::log_info(std::string("< ") + ConnectionThreadPool::getConnectionIPAndPort(threadData->clientSocket) + std::string(" > IN : ") + threadData->incomingMessage, TARGET_ALL);
+
                 threadData->messageAvailable = true;
             }
         }
@@ -58,10 +59,11 @@ void *handleConnection(void *connectionData)
         while (threadData->toSendBuffer.size() > 0)
         {
             send(threadData->clientSocket, threadData->toSendBuffer.front().c_str(), strlen(threadData->toSendBuffer.front().c_str()), 0);
-            ML::log_info(std::string("Sending : ") + threadData->toSendBuffer.front(), TARGET_ALL);
+            ML::log_info(std::string("< ") + ConnectionThreadPool::getConnectionIPAndPort(threadData->clientSocket) + std::string(" > OUT : ") + threadData->toSendBuffer.front(), TARGET_ALL);
             threadData->toSendBuffer.erase(threadData->toSendBuffer.begin());
         }
     }
+    pthread_exit(NULL);	
 }
 
 std::string ConnectionThreadPool::getConnectionIPAndPort(int socket)

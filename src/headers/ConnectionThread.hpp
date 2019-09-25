@@ -9,9 +9,9 @@ struct ConnectionData
 {
     int clientSocket;
     bool messageAvailable;
-    std::vector<std::string> toSendBuffer;
-    std::vector<std::string> temp;
+    pthread_t owner;
     std::string incomingMessage;
+    std::vector<std::string> toSendBuffer;
 };
 
 void *handleConnection(void *connectionData);

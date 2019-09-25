@@ -24,7 +24,6 @@ int Server::bindAndListen()
 
     ML::log_info("Server socket created", TARGET_ALL);
 
-    // Building address (SOCKETADDRIN) for listeninig
     listeningAddress.sin_addr.s_addr = INADDR_ANY;
     listeningAddress.sin_port = htons(port);
     listeningAddress.sin_family = AF_INET;
@@ -51,7 +50,6 @@ void Server::startAccept()
 
         if (clientSocket > 0)
         {
-
             threadPool->addConnectionThread(clientSocket);
         }
     }
@@ -65,18 +63,29 @@ void *broadcastRoutine(void *connectionThreadPool)
     {
         for (int index = 0; index < connThPool->connectionsData.size(); index++)
         {
-            if (connThPool->connectionsData.at(index).temp.size() > 0 && !connThPool->connectionsData.at(index).temp.at(0).empty())
+            if (connThPool->connectionsData.at(index).incomingMessage != "" && connThPool->connectionsData.at(index).messageAvailable)
             {
-                //std::this_thread::sleep_for(std::chrono::milliseconds(200));
-
                 for (int _index = 0; _index < connThPool->connectionsData.size(); _index++)
                 {
-                    connThPool->connectionsData.at(_index).toSendBuffer.push_back(connThPool->connectionsData.at(index).temp.back());
+                    connThPool->connectionsData.at(_index).toSendBuffer.push_back(connThPool->connectionsData.at(index).incomingMessage);
                 }
-            }          
 
-            connThPool->connectionsData.at(index).temp.clear();
-            connThPool->connectionsData.at(index).messageAvailable = false;
+                connThPool->connectionsData.at(index).messageAvailable = false;
+            }          
         }
     }
 }
+
+void *chatRoutine(void *connectionThreadPool)
+{
+    ConnectionThreadPool *connThPool = (ConnectionThreadPool *)connectionThreadPool;
+
+    while (1)
+    {
+        for (int index = 0; index < connThPool->connectionsData.size(); index++)
+        {
+            
+        }
+    }
+}
+

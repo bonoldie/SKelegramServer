@@ -7,15 +7,26 @@
 
 struct ConnectionData
 {
+    int alive;
     int clientSocket;
-    bool messageAvailable;
-    pthread_t owner;
+
+    pthread_t receiverThread;
+    pthread_t senderThread;
+    //std::vector<std::string> incomingMessages;
+    //std::vector<std::string> toSendMessages;
+
+    int incomingMessageFlag;
     std::string incomingMessage;
-    std::vector<std::string> toSendBuffer;
+    int toSendMessageFlag;
+    std::string toSendMessage;
 };
 
 void *handleConnection(void *connectionData);
-void *broadcastRoutine(void *connectionsData);
+void *broadcastRoutine(void *threadData);
+
+void *receiveRoutine(void *threadData);
+void *sendRoutine(void *threadData);
+
 
 class ConnectionThreadPool
 {
@@ -28,13 +39,13 @@ public:
 
     static std::string getConnectionIPAndPort(int socket);
 
+    //std::vector<ConnectionData> connectionsData;
     std::vector<ConnectionData> connectionsData;
+    std::array<ConnectionData, MAXCONNECTIONS * 2> threads;
 private:
-    std::array<pthread_t, MAXCONNECTIONS> threads;
     pthread_t broadcastThread;
 
-    int threadCounter = 0;
-    int index = 0;
+    int connectionsCounter = 0;
 };
 
 #endif

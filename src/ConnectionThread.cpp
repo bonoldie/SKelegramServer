@@ -1,4 +1,5 @@
 #include "./headers/ConnectionThread.hpp"
+#define WELCOME_MESSAGE " ################################# \n # Welcome in SKelegram chat :) # \n ################################# \n"
 
 ConnectionThreadPool::ConnectionThreadPool()
 {
@@ -15,25 +16,24 @@ void ConnectionThreadPool::addConnectionThread(int clientSocket)
     connectionData.clientSocket = clientSocket;
     connectionData.alive = 1;
 
-    connectionData.incomingMessage = connectionData.toSendMessage = "";
-    connectionData.incomingMessageFlag = connectionData.toSendMessageFlag = 0;
+    connectionData.incomingMessage.clear();
+    connectionData.incomingMessageFlag = 0;
 
     connectionsData.push_back(connectionData);
 
-    ML::log_info(std::string("Pre threading ... "), TARGET_ALL);
+    if (pthread_create(&receiverThread, NULL, receiveRoutine, (void *)&connectionsData.back()) == 0)
+    {
+        threads.push_back(receiverThread);
+        
+        connectionsCounter++;
 
-    pthread_create(&receiverThread, NULL, receiveRoutine, (void *)&connectionsData.back());
-    pthread_create(&senderThread, NULL, sendRoutine, (void *)&connectionsData.back());
-
-    ML::log_info(std::string("Post threading ... "), TARGET_ALL);
-
-    connectionsCounter++;
+        send(connectionData.clientSocket,&WELCOME_MESSAGE,sizeof(WELCOME_MESSAGE),0);
+    }
 }
 
 void *receiveRoutine(void *threadData)
 {
     ML::log_info("Receiver thread set up...", TARGET_ALL);
-    pthread_detach(pthread_self());
 
     ConnectionData *connectionData = (ConnectionData *)threadData;
     connectionData->receiverThread = pthread_self();
@@ -64,24 +64,23 @@ void *receiveRoutine(void *threadData)
     }
 }
 
-void *sendRoutine(void *threadData)
-{
-    ML::log_info("Sender thread set up...", TARGET_ALL);
-    pthread_detach(pthread_self());
-
-    ConnectionData *connectionData = (ConnectionData *)threadData;
-    connectionData->senderThread = pthread_self();
-
-    while (connectionData->alive)
-    {
-        if (connectionData->toSendMessageFlag && !connectionData->toSendMessage.empty())
-        {
-                send(connectionData->clientSocket, connectionData->toSendMessage.c_str(), strlen(connectionData->toSendMessage.c_str()), 0);
-                ML::log_info(std::string("< ") + ConnectionThreadPool::getConnectionIPAndPort(connectionData->clientSocket) + std::string(" > OUT : ") + connectionData->toSendMessage, TARGET_ALL);
-                connectionData->toSendMessage.clear();
-        }
-    }
-}
+//void *sendRoutine(void *threadData)
+//{
+//    ML::log_info("Sender thread set up...", TARGET_ALL);
+//
+//    ConnectionData *connectionData = (ConnectionData *)threadData;
+//    connectionData->senderThread = pthread_self();
+//
+//    while (connectionData->alive)
+//    {
+//        if (connectionData->toSendMessageFlag && !connectionData->toSendMessage.empty())
+//        {
+//            send(connectionData->clientSocket, connectionData->toSendMessage.c_str(), strlen(connectionData->toSendMessage.c_str()), 0);
+//            ML::log_info(std::string("< ") + ConnectionThreadPool::getConnectionIPAndPort(connectionData->clientSocket) + std::string(" > OUT : ") + connectionData->toSendMessage, TARGET_ALL);
+//            connectionData->toSendMessageFlag = 0;
+//        }
+//    }
+//}
 
 void *broadcastRoutine(void *threadData)
 {
@@ -93,17 +92,31 @@ void *broadcastRoutine(void *threadData)
         {
             if (connectionsData->at(index).incomingMessageFlag)
             {
-
                 for (int _index = 0; _index < connectionsData->size(); _index++)
                 {
-                    connectionsData->at(_index).toSendMessage = connectionsData->at(index).incomingMessage;
-                    connectionsData->at(_index).toSendMessageFlag = 1;
+                    send(connectionsData->at(_index).clientSocket, connectionsData->at(index).incomingMessage.c_str(), strlen(connectionsData->at(index).incomingMessage.c_str()), 0);
 
-                    ML::log_info("Broadcasting" + std::string(" -> ") + ConnectionThreadPool::getConnectionIPAndPort(connectionsData->at(index).clientSocket), TARGET_ALL);
+                    ML::log_info("Broadcasting" + std::string(" -> ") + ConnectionThreadPool::getConnectionIPAndPort(connectionsData->at(_index).clientSocket), TARGET_ALL);
                 }
+
                 connectionsData->at(index).incomingMessageFlag = 0;
             }
         }
+    }
+}
+
+void *testRoutine(void *threadData)
+{
+    std::vector<ConnectionData> *connectionsData = (std::vector<ConnectionData> *)threadData;
+
+    while (1)
+    {
+        //for (std::vector<ConnectionData>::iterator broadcastConnection = connectionsData->begin(); broadcastConnection != connectionsData->end(); broadcastConnection++)
+        //{
+        //    broadcastConnection->toSendMessage = "PING\0";
+        //    broadcastConnection->toSendMessageFlag = 1;
+        //}
+        //std::this_thread::sleep_for (std::chrono::milliseconds(1000));
     }
 }
 
@@ -123,52 +136,3 @@ std::string ConnectionThreadPool::getConnectionIPAndPort(int socket)
 
     return std::string(std::string(IP) + std::string(" :: ") + std::to_string(s->sin_port));
 }
-
-//void *handleConnection(void *connectionData)
-//{
-//    pthread_detach(pthread_self());
-//
-//    ConnectionData *threadData = (ConnectionData *)connectionData;
-//
-//    ML::log_info(std::string("Client connected ") + ConnectionThreadPool::getConnectionIPAndPort(threadData->clientSocket), TARGET_ALL);
-//
-//    threadData->owner = pthread_self();
-//
-//    threadData->messageAvailable = false;
-//    char charBuffer[1];
-//    bool isReceiving;
-//
-//    while (1)
-//    {
-//        if (!threadData->messageAvailable)
-//        {
-//            if ((isReceiving = recv(threadData->clientSocket, &charBuffer, 1, 0)) > 0)
-//            {
-//                threadData->incomingMessage = std::string(charBuffer);
-//
-//                while (isReceiving)
-//                {
-//                    if ((read(threadData->clientSocket, &charBuffer, 1)) > 0)
-//                    {
-//                        threadData->incomingMessage = threadData->incomingMessage + std::string(charBuffer);
-//                    }
-//                    isReceiving = threadData->incomingMessage.find("&(end)&") == std::string::npos;
-//                }
-//
-//                threadData->incomingMessage += '\0';
-//
-//                ML::log_info(std::string("< ") + ConnectionThreadPool::getConnectionIPAndPort(threadData->clientSocket) + std::string(" > IN : ") + threadData->incomingMessage, TARGET_ALL);
-//
-//                threadData->messageAvailable = true;
-//            }
-//        }
-//
-//        while (threadData->toSendMessages.size() > 0)
-//        {
-//            send(threadData->clientSocket, threadData->toSendMessages.front().c_str(), strlen(threadData->toSendMessages.front().c_str()), 0);
-//            ML::log_info(std::string("< ") + ConnectionThreadPool::getConnectionIPAndPort(threadData->clientSocket) + std::string(" > OUT : ") + threadData->toSendMessages.front(), TARGET_ALL);
-//            threadData->toSendMessages.erase(threadData->toSendMessages.begin());
-//        }
-//    }
-//    pthread_exit(NULL);
-//}

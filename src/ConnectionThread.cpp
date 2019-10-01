@@ -5,11 +5,11 @@ ConnectionThreadPool::ConnectionThreadPool()
 {
     BroadcastData bcData;
     bcData.sockets = &sockets;
-    // Connect directly broadcast messages to incoming messages 
+    // Connect directly broadcast messagges to incoming messagges 
     //  |
     //  V
     bcData.broadcastMessagges = &incomingMessagges;
-    // Separate incoming and to broacast messages for future implementations
+    // Separate incoming and to broacast messagges for future implementations
     //  |
     //  V
     //bcData.broadcastMessagges = &broadcastMessages;
@@ -17,7 +17,7 @@ ConnectionThreadPool::ConnectionThreadPool()
 }
 
 // Start a new thread for handle a new connection for a give socket.
-// It starts a new receive thread and regester socket for Broadcast Routine
+// It starts a new receive thread and register socket for Broadcast Routine
 void ConnectionThreadPool::addConnectionThread(int clientSocket)
 {
     ML::log_info(std::string("Client connection from ") + ConnectionThreadPool::getConnectionIPAndPort(clientSocket), TARGET_ALL);
@@ -72,8 +72,8 @@ void *receiveRoutine(void *threadData)
 }
 
 // Broadcast Routine
-// Checks for incoming messages and send them to all registered sockets
-// In works as echo server for now.
+// Checks for broacast messages and send them to all registered sockets
+// ** In works as echo server for now.
 void *broadcastRoutine(void *threadData)
 {
     BroadcastData broadcastData = *(BroadcastData *)threadData;

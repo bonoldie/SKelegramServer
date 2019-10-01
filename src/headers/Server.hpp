@@ -21,11 +21,11 @@ public:
     void startAccept();
 
     ConnectionThreadPool *threadPool;
+
 private:
     int serverSocketFD;
     SOCKETADDRIN listeningAddress;
     int port; 
-    
     pthread_t chatThread;
 };
 

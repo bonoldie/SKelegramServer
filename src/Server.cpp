@@ -39,6 +39,8 @@ int Server::bindAndListen()
 
 void Server::startAccept()
 {
+    pthread_create(&chatThread,NULL,chatRoutine,(void*)threadPool);
+
     int addressSize = sizeof(listeningAddress);
     while (1)
     {

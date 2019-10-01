@@ -7,13 +7,14 @@
 
 struct ConnectionData
 {
-    int alive;
     int clientSocket;
+    std::vector<std::string> *incomingMessages;
+};
 
-    pthread_t receiverThread;
-
-    int incomingMessageFlag;
-    std::string incomingMessage;
+struct BroadcastData
+{
+    std::vector<std::string> *incomingMessagges;
+    std::vector<int> *sockets;
 };
 
 void *handleConnection(void *connectionData);
@@ -35,9 +36,10 @@ public:
 
     static std::string getConnectionIPAndPort(int socket);
 
-    //std::vector<ConnectionData> connectionsData;
-    std::vector<ConnectionData> connectionsData;
+    std::vector<std::string> incomingMessagges;
+    std::vector<int> sockets;
     std::vector<pthread_t> threads;
+
 private:
     pthread_t broadcastThread;
 

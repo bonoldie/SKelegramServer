@@ -3,9 +3,14 @@
 
 ConnectionThreadPool::ConnectionThreadPool()
 {
-    pthread_create(&broadcastThread, NULL, broadcastRoutine, (void *)&connectionsData);
+    BroadcastData bcData;
+    bcData.sockets = &sockets;
+    bcData.incomingMessagges = &incomingMessagges;
+    pthread_create(&broadcastThread, NULL, broadcastRoutine, (void *)&bcData);
 }
 
+// Start a new thread for handle a new connection for a give socket.
+// It starts a new receive thread and regester socket for Broadcast Routine
 void ConnectionThreadPool::addConnectionThread(int clientSocket)
 {
     ML::log_info(std::string("Client connection from ") + ConnectionThreadPool::getConnectionIPAndPort(clientSocket), TARGET_ALL);
@@ -14,112 +19,74 @@ void ConnectionThreadPool::addConnectionThread(int clientSocket)
     ConnectionData connectionData;
 
     connectionData.clientSocket = clientSocket;
-    connectionData.alive = 1;
+    connectionData.incomingMessages = &incomingMessagges;
 
-    connectionData.incomingMessage.clear();
-    connectionData.incomingMessageFlag = 0;
+    sockets.push_back(clientSocket);
 
-    connectionsData.push_back(connectionData);
-
-    if (pthread_create(&receiverThread, NULL, receiveRoutine, (void *)&connectionsData.back()) == 0)
+    if (pthread_create(&receiverThread, NULL, receiveRoutine, (void *)&connectionData) == 0)
     {
         threads.push_back(receiverThread);
-        
+
         connectionsCounter++;
 
-        send(connectionData.clientSocket,&WELCOME_MESSAGE,sizeof(WELCOME_MESSAGE),0);
+        send(connectionData.clientSocket, &WELCOME_MESSAGE, sizeof(WELCOME_MESSAGE), 0);
     }
 }
 
+// Receive Routine
+// It check for incoming message from a given soket
+// Then add it to common incoming messages array
 void *receiveRoutine(void *threadData)
 {
     ML::log_info("Receiver thread set up...", TARGET_ALL);
 
-    ConnectionData *connectionData = (ConnectionData *)threadData;
-    connectionData->receiverThread = pthread_self();
+    ConnectionData connectionData = *(ConnectionData *)threadData;
 
     std::string tempString;
 
     char buffer[1];
 
-    while (connectionData->alive)
+    while (1)
     {
-        if (connectionData->incomingMessageFlag == 0)
+        tempString.clear();
+
+        while (tempString.find("&(end)&") == std::string::npos)
         {
-            tempString.clear();
-
-            while (tempString.find("&(end)&") == std::string::npos)
+            if (recv(connectionData.clientSocket, &buffer, 1, 0) > 0)
             {
-                if (recv(connectionData->clientSocket, &buffer, 1, 0) > 0)
-                {
-                    tempString += buffer[0];
-                }
+                tempString += buffer[0];
             }
-
-            ML::log_info(std::string("< ") + ConnectionThreadPool::getConnectionIPAndPort(connectionData->clientSocket) + std::string(" > IN : ") + tempString, TARGET_ALL);
-
-            connectionData->incomingMessage = tempString + '\0';
-            connectionData->incomingMessageFlag = 1;
         }
+
+        connectionData.incomingMessages->push_back(tempString);
+
+        ML::log_info(std::string("< ") + ConnectionThreadPool::getConnectionIPAndPort(connectionData.clientSocket) + std::string(" > IN : ") + connectionData.incomingMessages->back(), TARGET_ALL);
     }
 }
 
-//void *sendRoutine(void *threadData)
-//{
-//    ML::log_info("Sender thread set up...", TARGET_ALL);
-//
-//    ConnectionData *connectionData = (ConnectionData *)threadData;
-//    connectionData->senderThread = pthread_self();
-//
-//    while (connectionData->alive)
-//    {
-//        if (connectionData->toSendMessageFlag && !connectionData->toSendMessage.empty())
-//        {
-//            send(connectionData->clientSocket, connectionData->toSendMessage.c_str(), strlen(connectionData->toSendMessage.c_str()), 0);
-//            ML::log_info(std::string("< ") + ConnectionThreadPool::getConnectionIPAndPort(connectionData->clientSocket) + std::string(" > OUT : ") + connectionData->toSendMessage, TARGET_ALL);
-//            connectionData->toSendMessageFlag = 0;
-//        }
-//    }
-//}
-
+// Broadcast Routine
+// Checks for incoming messages and send them to all registered sockets
+// In works as echo server for now.
 void *broadcastRoutine(void *threadData)
 {
-    std::vector<ConnectionData> *connectionsData = (std::vector<ConnectionData> *)threadData;
+    BroadcastData broadcastData = *(BroadcastData *)threadData;
 
     while (1)
     {
-        for (int index = 0; index < connectionsData->size(); index++)
+        if (broadcastData.incomingMessagges->size() > 0)
         {
-            if (connectionsData->at(index).incomingMessageFlag)
+            for (int _index = 0; _index < broadcastData.sockets->size(); _index++)
             {
-                for (int _index = 0; _index < connectionsData->size(); _index++)
-                {
-                    send(connectionsData->at(_index).clientSocket, connectionsData->at(index).incomingMessage.c_str(), strlen(connectionsData->at(index).incomingMessage.c_str()), 0);
+                send(broadcastData.sockets->at(_index), broadcastData.incomingMessagges->front().c_str(), strlen(broadcastData.incomingMessagges->front().c_str()), 0);
 
-                    ML::log_info("Broadcasting" + std::string(" -> ") + ConnectionThreadPool::getConnectionIPAndPort(connectionsData->at(_index).clientSocket), TARGET_ALL);
-                }
-
-                connectionsData->at(index).incomingMessageFlag = 0;
+                ML::log_info("Broadcasting" + std::string(" -> ") + ConnectionThreadPool::getConnectionIPAndPort(broadcastData.sockets->at(_index)), TARGET_ALL);
             }
+            broadcastData.incomingMessagges->erase(broadcastData.incomingMessagges->begin());
         }
     }
 }
 
-void *testRoutine(void *threadData)
-{
-    std::vector<ConnectionData> *connectionsData = (std::vector<ConnectionData> *)threadData;
-
-    while (1)
-    {
-        //for (std::vector<ConnectionData>::iterator broadcastConnection = connectionsData->begin(); broadcastConnection != connectionsData->end(); broadcastConnection++)
-        //{
-        //    broadcastConnection->toSendMessage = "PING\0";
-        //    broadcastConnection->toSendMessageFlag = 1;
-        //}
-        //std::this_thread::sleep_for (std::chrono::milliseconds(1000));
-    }
-}
-
+// Return a string with format "" IP :: PORT "" of a given socket connection
 std::string ConnectionThreadPool::getConnectionIPAndPort(int socket)
 {
     socklen_t len;
@@ -135,4 +102,15 @@ std::string ConnectionThreadPool::getConnectionIPAndPort(int socket)
     inet_ntop(AF_INET, &s->sin_addr, IP, sizeof(IP));
 
     return std::string(std::string(IP) + std::string(" :: ") + std::to_string(s->sin_port));
+}
+
+// TESTING PURPOSE ROUTINE //
+void *testRoutine(void *threadData)
+{
+    std::vector<ConnectionData> *connectionsData = (std::vector<ConnectionData> *)threadData;
+
+    while (1)
+    {
+        
+    }
 }

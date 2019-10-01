@@ -59,8 +59,6 @@ void *chatRoutine(void *connectionThreadPool)
 
     while (1)
     {
-        for (int index = 0; index < connThPool->connectionsData.size(); index++)
-        {
-        }
+        
     }
 }

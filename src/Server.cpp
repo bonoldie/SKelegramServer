@@ -59,6 +59,12 @@ void *chatRoutine(void *connectionThreadPool)
 
     while (1)
     {
-        
+        if(connThPool->incomingMessagges.size() > 0){
+            for (int _index = 0; _index < connThPool->sockets.size(); _index++)
+            {
+                connThPool->broadcastMessages.push_back(connThPool->incomingMessagges.front());
+            }
+            connThPool->incomingMessagges.erase(connThPool->incomingMessagges.begin());
+        }
     }
 }

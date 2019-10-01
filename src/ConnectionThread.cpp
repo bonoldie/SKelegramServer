@@ -5,7 +5,14 @@ ConnectionThreadPool::ConnectionThreadPool()
 {
     BroadcastData bcData;
     bcData.sockets = &sockets;
-    bcData.incomingMessagges = &incomingMessagges;
+    // Connect directly broadcast messages to incoming messages 
+    //  |
+    //  V
+    bcData.broadcastMessagges = &incomingMessagges;
+    // Separate incoming and to broacast messages for future implementations
+    //  |
+    //  V
+    //bcData.broadcastMessagges = &broadcastMessages;
     pthread_create(&broadcastThread, NULL, broadcastRoutine, (void *)&bcData);
 }
 
@@ -73,15 +80,15 @@ void *broadcastRoutine(void *threadData)
 
     while (1)
     {
-        if (broadcastData.incomingMessagges->size() > 0)
+        if (broadcastData.broadcastMessagges->size() > 0)
         {
             for (int _index = 0; _index < broadcastData.sockets->size(); _index++)
             {
-                send(broadcastData.sockets->at(_index), broadcastData.incomingMessagges->front().c_str(), strlen(broadcastData.incomingMessagges->front().c_str()), 0);
+                send(broadcastData.sockets->at(_index), broadcastData.broadcastMessagges->front().c_str(), strlen(broadcastData.broadcastMessagges->front().c_str()), 0);
 
                 ML::log_info("Broadcasting" + std::string(" -> ") + ConnectionThreadPool::getConnectionIPAndPort(broadcastData.sockets->at(_index)), TARGET_ALL);
             }
-            broadcastData.incomingMessagges->erase(broadcastData.incomingMessagges->begin());
+            broadcastData.broadcastMessagges->erase(broadcastData.broadcastMessagges->begin());
         }
     }
 }

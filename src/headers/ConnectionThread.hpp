@@ -13,7 +13,7 @@ struct ConnectionData
 
 struct BroadcastData
 {
-    std::vector<std::string> *incomingMessagges;
+    std::vector<std::string> *broadcastMessagges;
     std::vector<int> *sockets;
 };
 
@@ -37,6 +37,7 @@ public:
     static std::string getConnectionIPAndPort(int socket);
 
     std::vector<std::string> incomingMessagges;
+    std::vector<std::string> broadcastMessages;
     std::vector<int> sockets;
     std::vector<pthread_t> threads;
 

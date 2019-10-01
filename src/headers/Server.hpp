@@ -26,7 +26,7 @@ private:
     SOCKETADDRIN listeningAddress;
     int port; 
     
-    pthread_t broadcastThread;
+    pthread_t chatThread;
 };
 
 #endif

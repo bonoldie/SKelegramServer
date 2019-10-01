@@ -5,15 +5,20 @@ ConnectionThreadPool::ConnectionThreadPool()
 {
     BroadcastData bcData;
     bcData.sockets = &sockets;
+    *bcData.isThreadReady = 0;
     // Connect directly broadcast messagges to incoming messagges 
     //  |
     //  V
-    bcData.broadcastMessagges = &incomingMessagges;
+    //bcData.broadcastMessagges = &incomingMessagges;
     // Separate incoming and to broacast messagges for future implementations
     //  |
     //  V
-    //bcData.broadcastMessagges = &broadcastMessages;
+    bcData.broadcastMessagges = &broadcastMessages;
     pthread_create(&broadcastThread, NULL, broadcastRoutine, (void *)&bcData);
+
+    // Waiting for thread to clean scope
+    // (bad way)
+    while(*bcData.isThreadReady == 0){ ML::log_warning("! Waiting for Broadcast thread startup !",TARGET_ALL);};
 }
 
 // Start a new thread for handle a new connection for a give socket.
@@ -77,6 +82,8 @@ void *receiveRoutine(void *threadData)
 void *broadcastRoutine(void *threadData)
 {
     BroadcastData broadcastData = *(BroadcastData *)threadData;
+
+    *broadcastData.isThreadReady = 1;
 
     while (1)
     {

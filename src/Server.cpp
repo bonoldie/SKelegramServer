@@ -1,5 +1,7 @@
 #include "./headers/Server.hpp"
 
+// Initialize the server logger and the main thread pool
+// Future updates will implement more pools
 void Server::initialize()
 {
     ML::initialize("socketChat.log");
@@ -11,6 +13,7 @@ void Server::initialize()
     serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
 }
 
+// Try to bind and listen to the selected port or if not set !! to the default one DEFAULT_PORT
 int Server::bindAndListen()
 {
     int temp = 1;
@@ -34,7 +37,7 @@ int Server::bindAndListen()
 
     ML::log_info(std::string("Listening for connections at port ") + std::to_string(port), TARGET_ALL);
 
-    return 1;
+    return 0;
 }
 
 void Server::startAccept()
@@ -62,10 +65,7 @@ void *chatRoutine(void *connectionThreadPool)
     while (1)
     {
         if(connThPool->incomingMessagges.size() > 0){
-            for (int _index = 0; _index < connThPool->sockets.size(); _index++)
-            {
-                connThPool->broadcastMessages.push_back(connThPool->incomingMessagges.front());
-            }
+            connThPool->broadcastMessages.push_back(connThPool->incomingMessagges.front());
             connThPool->incomingMessagges.erase(connThPool->incomingMessagges.begin());
         }
     }

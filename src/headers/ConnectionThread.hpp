@@ -13,6 +13,7 @@ struct ConnectionData
 
 struct BroadcastData
 {
+    int *isThreadReady;
     std::vector<std::string> *broadcastMessagges;
     std::vector<int> *sockets;
 };

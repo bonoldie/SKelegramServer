@@ -31,15 +31,13 @@ void ConnectionThreadPool::addConnectionThread(int clientSocket)
     ConnectionData connectionData;
 
     connectionData.clientSocket = clientSocket;
-    connectionData.incomingMessages = &incomingMessagges;
+    connectionData.rawData = &rawData;
 
     sockets.push_back(clientSocket);
 
     if (pthread_create(&receiverThread, NULL, receiveRoutine, (void *)&connectionData) == 0)
     {
         threads.push_back(receiverThread);
-
-        connectionsCounter++;
 
         send(connectionData.clientSocket, &WELCOME_MESSAGE, sizeof(WELCOME_MESSAGE), 0);
     }
@@ -50,8 +48,6 @@ void ConnectionThreadPool::addConnectionThread(int clientSocket)
 // Then add it to common incoming messages array
 void *receiveRoutine(void *threadData)
 {
-    ML::log_info("Receiver thread set up...", TARGET_ALL);
-
     ConnectionData connectionData = *(ConnectionData *)threadData;
 
     std::string tempString;
@@ -70,15 +66,12 @@ void *receiveRoutine(void *threadData)
             }
         }
 
-        connectionData.incomingMessages->push_back(tempString);
-
-        ML::log_info(std::string("< ") + ConnectionThreadPool::getConnectionIPAndPort(connectionData.clientSocket) + std::string(" > IN : ") + connectionData.incomingMessages->back(), TARGET_ALL);
+        connectionData.rawData->push_back(tempString);
     }
 }
 
 // Broadcast Routine
 // Checks for broacast messages and send them to all registered sockets
-// ** In works as echo server for now.
 void *broadcastRoutine(void *threadData)
 {
     BroadcastData broadcastData = *(BroadcastData *)threadData;
@@ -92,8 +85,6 @@ void *broadcastRoutine(void *threadData)
             for (int _index = 0; _index < broadcastData.sockets->size(); _index++)
             {
                 send(broadcastData.sockets->at(_index), broadcastData.broadcastMessagges->front().c_str(), strlen(broadcastData.broadcastMessagges->front().c_str()), 0);
-
-                ML::log_info("Broadcasting" + std::string(" -> ") + ConnectionThreadPool::getConnectionIPAndPort(broadcastData.sockets->at(_index)), TARGET_ALL);
             }
             broadcastData.broadcastMessagges->erase(broadcastData.broadcastMessagges->begin());
         }

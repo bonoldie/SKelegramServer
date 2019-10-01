@@ -8,8 +8,10 @@ void Server::initialize()
 
     ML::log_info("Socket Chat loggin system initialized", TARGET_ALL);
 
+    skelegramCore = new SKelegramCore();
+
     threadPool = new ConnectionThreadPool();
-    
+
     serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
 }
 
@@ -19,7 +21,7 @@ int Server::bindAndListen()
     int temp = 1;
     if (serverSocketFD < 0 || setsockopt(serverSocketFD, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &temp, sizeof(temp)) < 0)
     {
-        ML::log_fatal(std::string("Cannot create new socket with current IP or port !"), TARGET_ALL);
+        ML::log_fatal(std::string("Cannot set current options on socket !"), TARGET_ALL);
         return -1;
     }
 
@@ -40,9 +42,15 @@ int Server::bindAndListen()
     return 0;
 }
 
+// Start to accept request of connetion from the binded socket
+// It's blocking until any request is rised
 void Server::startAccept()
 {
-    pthread_create(&chatThread,NULL,chatRoutine,(void*)threadPool);
+    ServerRoutineData serverData;
+    serverData.cThreadPool = threadPool;
+    serverData.skelegramCore = skelegramCore;
+
+    pthread_create(&serverRoutineThread, NULL, serverRoutine, (void *)&serverData);
 
     int addressSize = sizeof(listeningAddress);
     while (1)
@@ -58,15 +66,23 @@ void Server::startAccept()
     }
 }
 
-void *chatRoutine(void *connectionThreadPool)
+void *serverRoutine(void *data)
 {
-    ConnectionThreadPool *connThPool = (ConnectionThreadPool *)connectionThreadPool;
+    ServerRoutineData routineData = *(ServerRoutineData *)data;
+    ConnectionThreadPool *cThreadPool = routineData.cThreadPool;
+    SKelegramCore *skelegramCore = routineData.skelegramCore;
+
+    ML::log_info("Server Routine initialized",TARGET_ALL);
 
     while (1)
     {
-        if(connThPool->incomingMessagges.size() > 0){
-            connThPool->broadcastMessages.push_back(connThPool->incomingMessagges.front());
-            connThPool->incomingMessagges.erase(connThPool->incomingMessagges.begin());
+        if (cThreadPool->rawData.size() > 0)
+        {
+            std::string elaboratedMessage = skelegramCore->elaborateRawData(cThreadPool->rawData.front());
+            
+            cThreadPool->broadcastMessages.push_back(elaboratedMessage);
+
+            cThreadPool->rawData.erase(cThreadPool->rawData.begin());
         }
     }
 }

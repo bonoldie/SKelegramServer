@@ -3,12 +3,18 @@
 
 #include "../Includer.hpp"
 #include "./ConnectionThread.hpp"
+#include "./SKelegramCore.hpp"
 
 #define DEFAULT_PORT 45678
 
 typedef struct sockaddr_in SOCKETADDRIN;
 
-void *chatRoutine(void *connectionThreadPool);
+struct ServerRoutineData {
+    ConnectionThreadPool *cThreadPool;
+    SKelegramCore *skelegramCore;
+};
+
+void *serverRoutine(void *data);
 
 class Server {
 public:
@@ -25,8 +31,9 @@ public:
 private:
     int serverSocketFD;
     SOCKETADDRIN listeningAddress;
-    int port; 
-    pthread_t chatThread;
+    SKelegramCore *skelegramCore;
+    int port;
+    pthread_t serverRoutineThread;
 };
 
 #endif

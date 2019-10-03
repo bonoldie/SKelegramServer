@@ -6,14 +6,14 @@ ConnectionThreadPool::ConnectionThreadPool()
     BroadcastData bcData;
     bcData.sockets = &sockets;
     *bcData.isThreadReady = 0;
-    // Connect directly broadcast messagges to incoming messagges 
+    // Connect directly broadcast messages to incoming messages 
     //  |
     //  V
-    //bcData.broadcastMessagges = &incomingMessagges;
-    // Separate incoming and to broacast messagges for future implementations
+    //bcData.broadcastMessages = &incomingMessages;
+    // Separate incoming and to broacast messages for future implementations
     //  |
     //  V
-    bcData.broadcastMessagges = &broadcastMessages;
+    bcData.broadcastMessages = &broadcastMessages;
     pthread_create(&broadcastThread, NULL, broadcastRoutine, (void *)&bcData);
 
     // Waiting for thread to clean scope
@@ -28,7 +28,7 @@ void ConnectionThreadPool::addConnectionThread(int clientSocket)
     ML::log_info(std::string("Client connection from ") + ConnectionThreadPool::getConnectionIPAndPort(clientSocket), TARGET_ALL);
 
     pthread_t receiverThread, senderThread;
-    ConnectionData connectionData;
+    SKelegramConnetion connectionData;
 
     connectionData.clientSocket = clientSocket;
     connectionData.rawData = &rawData;
@@ -48,7 +48,7 @@ void ConnectionThreadPool::addConnectionThread(int clientSocket)
 // Then add it to common incoming messages array
 void *receiveRoutine(void *threadData)
 {
-    ConnectionData connectionData = *(ConnectionData *)threadData;
+    SKelegramConnetion connectionData = *(SKelegramConnetion *)threadData;
 
     std::string tempString;
 
@@ -80,13 +80,13 @@ void *broadcastRoutine(void *threadData)
 
     while (1)
     {
-        if (broadcastData.broadcastMessagges->size() > 0)
+        if (broadcastData.broadcastMessages->size() > 0)
         {
             for (int _index = 0; _index < broadcastData.sockets->size(); _index++)
             {
-                send(broadcastData.sockets->at(_index), broadcastData.broadcastMessagges->front().c_str(), strlen(broadcastData.broadcastMessagges->front().c_str()), 0);
+                send(broadcastData.sockets->at(_index), broadcastData.broadcastMessages->front().c_str(), strlen(broadcastData.broadcastMessages->front().c_str()), 0);
             }
-            broadcastData.broadcastMessagges->erase(broadcastData.broadcastMessagges->begin());
+            broadcastData.broadcastMessages->erase(broadcastData.broadcastMessages->begin());
         }
     }
 }
@@ -112,7 +112,7 @@ std::string ConnectionThreadPool::getConnectionIPAndPort(int socket)
 // TESTING PURPOSE ROUTINE //
 void *testRoutine(void *threadData)
 {
-    std::vector<ConnectionData> *connectionsData = (std::vector<ConnectionData> *)threadData;
+    std::vector<SKelegramConnetion> *connectionsData = (std::vector<SKelegramConnetion> *)threadData;
 
     while (1)
     {

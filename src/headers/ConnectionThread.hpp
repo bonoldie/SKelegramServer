@@ -5,7 +5,7 @@
 
 #define MAXCONNECTIONS 255
 
-struct ConnectionData
+struct SKelegramConnetion
 {
     int clientSocket;
     std::vector<std::string> *rawData;
@@ -14,7 +14,7 @@ struct ConnectionData
 struct BroadcastData
 {
     int *isThreadReady;
-    std::vector<std::string> *broadcastMessagges;
+    std::vector<std::string> *broadcastMessages;
     std::vector<int> *sockets;
 };
 

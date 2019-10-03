@@ -2,10 +2,24 @@
 #define CHATCORE_H
 
 #include "../Includer.hpp"
+#include "./ConnectionThread.hpp"
+
+// STRUCTURES
+// This section contains all the structures that are used in SKelegramServer
 
 enum Directive{
     SERVER,
     BROADCAST
+};
+
+struct SKelegramRawData{
+    unsigned int connectionID;
+    std::string rawData;
+};
+
+struct SKelegramData{      
+    unsigned int connectionPoolID;
+    SKelegramRawData data;
 };
 
 struct SKelegramMessage {
@@ -13,6 +27,8 @@ struct SKelegramMessage {
     std::string message;
     std::time_t dateTime; 
 };
+
+// SKelegramCore DEFINITIONS
 
 class SKelegramCore {
 public:
@@ -23,6 +39,7 @@ public:
 private:
     std::vector<SKelegramMessage> skelegramMessages;
 };
+
 
 
 #endif

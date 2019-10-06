@@ -9,14 +9,14 @@ void SKelegramServer::initialize()
     skelegramCore = new SKelegramCore();
 
     skelegramCore->initialize();
-    
+
     connectionPool = new ConnectionPool();
 
     skelegramCore->registerConnectionPool(connectionPool);
 
     pthread_t collectorThread;
-    
-    pthread_create(&collectorThread,NULL,&rawDataCollectorRoutine,(void*)skelegramCore);
+
+    pthread_create(&collectorThread, NULL, &rawDataRouterRoutine, (void *)skelegramCore);
 
     serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
 }
@@ -69,11 +69,11 @@ void SKelegramServer::startAccept()
     }
 }
 
-void *rawDataCollectorRoutine(void *coreInstance)
+void *rawDataRouterRoutine(void *coreInstance)
 {
     SKelegramCore *instance = (SKelegramCore *)coreInstance;
 
-    ML::log_info("Raw data collector initialized on CORE");
+    ML::log_info("Raw data Router initialized on CORE");
 
     while (1)
     {
@@ -86,9 +86,26 @@ void *rawDataCollectorRoutine(void *coreInstance)
                 skRawData.connectionPoolID = connectionPool->poolID;
                 skRawData.data = connectionPool->rawData.front();
 
-                instance->incomingData.push_back(skRawData);
+                instance->queuedData.push_back(skRawData);
 
                 connectionPool->rawData.erase(connectionPool->rawData.begin());
+            }
+        }
+
+        if (instance->queuedData.size() > 0)
+        {
+            if (instance->queuedData.front().elaborated)
+            {
+                for (ConnectionPool *connectionPool : instance->connectionPools)
+                {
+                    if (connectionPool->poolID == instance->queuedData.front().connectionPoolID)
+                    {
+                        //ML::log_info(std::string("Data incoming from") + std::to_string(connectionPool->poolID) + std::string(" : ") + connectionPool->rawData.front().rawData);
+                        connectionPool->broadcastData(instance->queuedData.front().data.rawData);
+
+                        instance->queuedData.erase(instance->queuedData.begin());
+                    }
+                }
             }
         }
     }

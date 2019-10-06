@@ -3,7 +3,7 @@
 void SKelegramCore::initialize()
 {
     pthread_t elaborateRoutine;
-    pthread_create(&elaborateRoutine,NULL,&elaborateDataRoutine,(void*)&incomingData);
+    pthread_create(&elaborateRoutine, NULL, &elaborateDataRoutine, (void *)&queuedData);
 }
 
 void SKelegramCore::registerConnectionPool(ConnectionPool *connectionPool)
@@ -23,7 +23,7 @@ void SKelegramCore::handleIncomingConnection(int clientSocket)
 {
     if (connectionPools.size() > 0)
     {
-        connectionPools.at(0)->addReceiver(clientSocket);
+        connectionPools.front()->addReceiver(clientSocket);
     }
     else
     {
@@ -31,14 +31,19 @@ void SKelegramCore::handleIncomingConnection(int clientSocket)
     }
 }
 
-void *elaborateDataRoutine(void *incomingData){
-    std::vector<SKelegramData> * toElaborateData = (std::vector<SKelegramData> *)incomingData;
-    while(1){
-        if(toElaborateData->size() > 0){
-            // FOR NOW IT ONLY BROADCAST INCOMING MESSAGES
-            send(toElaborateData->at(0).data.clientSocket,toElaborateData->at(0).data.rawData.c_str(),strlen(toElaborateData->at(0).data.rawData.c_str()),0);
-            // Removing last element 
-           toElaborateData->erase(toElaborateData->begin());
+void *elaborateDataRoutine(void *incomingData)
+{
+    std::vector<SKelegramData> *toElaborateData = (std::vector<SKelegramData> *)incomingData;
+    while (1)
+    {
+        if (toElaborateData->size() > 0)
+        {
+            if (!toElaborateData->front().elaborated)
+            {
+                // FOR NOW IT ONLY BROADCAST INCOMING MESSAGES
+
+                toElaborateData->front().elaborated = 1;
+            }
         }
     }
 };

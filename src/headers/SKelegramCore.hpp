@@ -25,6 +25,7 @@ struct SKelegramRawData
 // Medium level Data structure
 struct SKelegramData
 {
+    int elaborated = 0;
     unsigned int connectionPoolID;
     SKelegramRawData data;
 };
@@ -91,7 +92,7 @@ private:
 void *elaborateDataRoutine(void *incomingData);
 
 // Collect data from all registered pools and add that to elaborating queue
-void *rawDataCollectorRoutine(void *coreInstance);
+void *rawDataRouterRoutine(void *coreInstance);
 
 // SKelegramCore define the core of the application
 // It handles connections and elaborate data
@@ -109,8 +110,8 @@ public:
     void handleIncomingConnection(int clientSocket);
 
     std::vector<ConnectionPool *> connectionPools;
-    std::vector<SKelegramData> incomingData;
-
+    
+    std::vector<SKelegramData> queuedData;
 private:
     std::vector<SKelegramMessage> skelegramMessages;
 };

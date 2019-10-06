@@ -9,7 +9,7 @@ ConnectionPool::ConnectionPool() : poolID(poolCounter++)
 
 void ConnectionPool::addReceiver(int clientSocket)
 {
-    ML::log_info(std::string("Client connection from ") + ConnectionPool::getConnectionIPAndPort(clientSocket));
+    ML::log_info(std::string("Client connected from ") + ConnectionPool::getConnectionIPAndPort(clientSocket));
 
     pthread_t receiverThread;
     SKelegramConnetion connectionData;
@@ -33,15 +33,22 @@ void *receiveRoutine(void *threadData)
 
     char buffer[1];
 
-    while (1)
+    int receivedFlag,isRunning = 1;
+
+    while (isRunning)
     {
         receivedString.clear();
 
-        while (receivedString.find("&(end)&") == std::string::npos)
+        while (receivedString.find("&(end)&") == std::string::npos && isRunning)
         {
-            if (recv(connectionData.clientSocket, &buffer, 1, 0) > 0)
+            if ((receivedFlag = recv(connectionData.clientSocket, &buffer, 1, 0)) > 0)
             {
                 receivedString += buffer[0];
+            }
+            else if(receivedFlag == 0)
+            {
+                isRunning = 0;
+                receivedString = "&(server)&CLOSECONNECTION&(end)&";
             }
         }
 
@@ -52,6 +59,8 @@ void *receiveRoutine(void *threadData)
 
         connectionData.rawData->push_back(receivedRawData);
     }
+
+    ML::log_info(std::string("Connection closed for ") + ConnectionPool::getConnectionIPAndPort(connectionData.clientSocket));
 }
 
 void ConnectionPool::broadcastData(std::string rawData)

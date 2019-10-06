@@ -3,7 +3,6 @@
 void SKelegramCore::initialize()
 {
     pthread_t elaborateRoutine;
-    pthread_create(&elaborateRoutine, NULL, &elaborateDataRoutine, (void *)&queuedData);
 }
 
 void SKelegramCore::registerConnectionPool(ConnectionPool *connectionPool)
@@ -30,20 +29,3 @@ void SKelegramCore::handleIncomingConnection(int clientSocket)
         ML::log_warning("Cannot handle incoming connection request. No pools available!");
     }
 }
-
-void *elaborateDataRoutine(void *incomingData)
-{
-    std::vector<SKelegramData> *toElaborateData = (std::vector<SKelegramData> *)incomingData;
-    while (1)
-    {
-        if (toElaborateData->size() > 0)
-        {
-            if (!toElaborateData->front().elaborated)
-            {
-                // FOR NOW IT ONLY BROADCAST INCOMING MESSAGES
-
-                toElaborateData->front().elaborated = 1;
-            }
-        }
-    }
-};

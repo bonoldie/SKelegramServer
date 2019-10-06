@@ -14,9 +14,10 @@ void SKelegramServer::initialize()
 
     skelegramCore->registerConnectionPool(connectionPool);
 
-    pthread_t collectorThread;
+    pthread_t collectorThread, elaboratorThread;
 
     pthread_create(&collectorThread, NULL, &rawDataRouterRoutine, (void *)skelegramCore);
+    pthread_create(&elaboratorThread, NULL, &elaborateDataRoutine, (void *)skelegramCore);
 
     serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
 }
@@ -68,6 +69,41 @@ void SKelegramServer::startAccept()
         }
     }
 }
+
+void *elaborateDataRoutine(void *coreInstance)
+{
+    SKelegramCore *instance = (SKelegramCore *)coreInstance;
+
+    std::vector<SKelegramData> *toElaborateData = &instance->queuedData;
+
+    while (1)
+    {
+        if (toElaborateData->size() > 0)
+        {
+            if (!toElaborateData->front().elaborated)
+            {
+                if (toElaborateData->front().data.rawData == "&(server)&CLOSECONNECTION&(end)&")
+                {
+                    for (ConnectionPool *connectionPool : instance->connectionPools)
+                    {
+                        if (connectionPool->poolID == toElaborateData->front().connectionPoolID)
+                        {
+                            auto regSockets = std::find(connectionPool->registeredSockets.begin(), connectionPool->registeredSockets.end(),toElaborateData->front().data.clientSocket);
+                            if(regSockets != connectionPool->registeredSockets.end()){
+                                connectionPool->registeredSockets.erase(regSockets);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    toElaborateData->front().elaborated = 1;
+                }
+                // FOR NOW IT ONLY BROADCAST INCOMING MESSAGES
+            }
+        }
+    }
+};
 
 void *rawDataRouterRoutine(void *coreInstance)
 {

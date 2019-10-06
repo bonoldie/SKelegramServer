@@ -18,7 +18,7 @@ enum Directive
 // Low level Data structure
 struct SKelegramRawData
 {
-    unsigned int clientSocket;
+       int clientSocket;
     std::string rawData;
 };
 
@@ -30,7 +30,7 @@ struct SKelegramData
     SKelegramRawData data;
 };
 
-// High level Data structure
+// High level message Data structure
 struct SKelegramMessage
 {
     std::string username;

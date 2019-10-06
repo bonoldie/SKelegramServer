@@ -1,18 +1,18 @@
 #include "./Includer.hpp"
-#include "./headers/Server.hpp"
+#include "./headers/SKelegramServer.hpp"
 
 int main()
 {
-    Server *SKelegramServer = new Server();
+    SKelegramServer *skelegramServer = new SKelegramServer();
     
-    SKelegramServer->initialize();
+    skelegramServer->initialize();
 
-    if(SKelegramServer->bindAndListen() < 0){
-        ML::log_fatal("Cannot bind or listen with this configuratio... \n Think about checking ports...",TARGET_ALL);
+    if(skelegramServer->bindAndListen() < 0){
+        ML::log_fatal("Cannot bind or listen with this configuratio... \n Think about checking ports..." );
         exit(1);
     };
 
-    SKelegramServer->startAccept();
+    skelegramServer->startAccept();
 
     return 0;
 }

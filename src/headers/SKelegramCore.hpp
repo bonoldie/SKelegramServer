@@ -2,44 +2,117 @@
 #define CHATCORE_H
 
 #include "../Includer.hpp"
-#include "./ConnectionThread.hpp"
+
+#define MAXCONNECTIONS 8
 
 // STRUCTURES
 // This section contains all the structures that are used in SKelegramServer
 
-enum Directive{
+// Dictive type
+enum Directive
+{
     SERVER,
     BROADCAST
 };
 
-struct SKelegramRawData{
-    unsigned int connectionID;
+// Low level Data structure
+struct SKelegramRawData
+{
+    unsigned int clientSocket;
     std::string rawData;
 };
 
-struct SKelegramData{      
+// Medium level Data structure
+struct SKelegramData
+{
     unsigned int connectionPoolID;
     SKelegramRawData data;
 };
 
-struct SKelegramMessage {
+// High level Data structure
+struct SKelegramMessage
+{
     std::string username;
     std::string message;
-    std::time_t dateTime; 
+    std::time_t dateTime;
+};
+
+// Connection structure to initialize new connection
+struct SKelegramConnetion
+{
+    int clientSocket;
+    std::vector<SKelegramRawData> *rawData;
+};
+
+// Data passed to connection thread pool Broadcaster
+struct BroadcastData
+{
+    int *isThreadReady;
+    std::vector<SKelegramRawData> *broadcastRawData;
 };
 
 // SKelegramCore DEFINITIONS
 
-class SKelegramCore {
+// Receive Routine
+// It check for incoming message from a given soket
+// Then add it to common incoming messages array
+void *receiveRoutine(void *threadData);
+
+// Useful test routine for connection pools
+void *testRoutine(void *threadData);
+
+// ConnectionPool define a pool of connections
+// I/O with low level data
+class ConnectionPool
+{
+public:
+    ConnectionPool();
+    ~ConnectionPool() = default;
+
+    // Start a new thread for handle a new connection for a give socket.
+    // It starts a new receive thread and register socket for Broadcast Routine
+    void addReceiver(int clientSocket);
+
+    // Return a string with format "" IP :: PORT "" of a given socket connection
+    static std::string getConnectionIPAndPort(int socket);
+
+    void broadcastData(std::string rawData);
+
+    std::vector<SKelegramRawData> rawData;
+    std::vector<int> registeredSockets;
+    static uint poolCounter;
+    const uint poolID;
+
+private:
+    pthread_t broadcastThread;
+};
+
+// Core routine
+void *elaborateDataRoutine(void *incomingData);
+
+// Collect data from all registered pools and add that to elaborating queue
+void *rawDataCollectorRoutine(void *coreInstance);
+
+// SKelegramCore define the core of the application
+// It handles connections and elaborate data
+// Any IO action
+class SKelegramCore
+{
 public:
     SKelegramCore() = default;
     ~SKelegramCore() = default;
-    
-    std::string elaborateRawData(std::string rawData);
+
+    void initialize();
+
+    std::string elaborateRawData(SKelegramRawData rawData);
+    void registerConnectionPool(ConnectionPool *connectionPool);
+    void handleIncomingConnection(int clientSocket);
+
+    std::vector<ConnectionPool *> connectionPools;
+    std::vector<SKelegramData> incomingData;
+
 private:
     std::vector<SKelegramMessage> skelegramMessages;
 };
-
-
 
 #endif

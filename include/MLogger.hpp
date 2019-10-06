@@ -81,15 +81,15 @@ extern void setLogPath(char *pathToLogFile = 0);
 extern void showDate();
 extern void hideDate();
 
-extern void log_info(const char *textToLog, int target);
-extern void log_warning(const char *textToLog, int target);
-extern void log_error(const char *textToLog, int target);
-extern void log_fatal(const char *textToLog, int target);
+extern void log_info(const char *textToLog, int target = TARGET_ALL);
+extern void log_warning(const char *textToLog, int target = TARGET_ALL);
+extern void log_error(const char *textToLog, int target = TARGET_ALL);
+extern void log_fatal(const char *textToLog, int target = TARGET_ALL);
 
-extern void log_info(std::string textToLog, int target);
-extern void log_warning(std::string textToLog, int target);
-extern void log_error(std::string textToLog, int target);
-extern void log_fatal(std::string textToLog, int target);
+extern void log_info(std::string textToLog, int target = TARGET_ALL);
+extern void log_warning(std::string textToLog, int target = TARGET_ALL);
+extern void log_error(std::string textToLog, int target = TARGET_ALL);
+extern void log_fatal(std::string textToLog, int target = TARGET_ALL);
 
 } // namespace ML
 

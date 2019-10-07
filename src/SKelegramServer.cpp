@@ -88,17 +88,21 @@ void *elaborateDataRoutine(void *coreInstance)
                     {
                         if (connectionPool->poolID == toElaborateData->front().connectionPoolID)
                         {
-                            auto regSockets = std::find(connectionPool->registeredSockets.begin(), connectionPool->registeredSockets.end(),toElaborateData->front().data.clientSocket);
-                            if(regSockets != connectionPool->registeredSockets.end()){
+                            auto regSockets = std::find(connectionPool->registeredSockets.begin(), connectionPool->registeredSockets.end(), toElaborateData->front().data.clientSocket);
+
+                            if (regSockets != connectionPool->registeredSockets.end())
+                            {
                                 connectionPool->registeredSockets.erase(regSockets);
                             }
                         }
                     }
+                    toElaborateData->erase(toElaborateData->begin());
                 }
                 else
                 {
                     toElaborateData->front().elaborated = 1;
                 }
+
                 // FOR NOW IT ONLY BROADCAST INCOMING MESSAGES
             }
         }

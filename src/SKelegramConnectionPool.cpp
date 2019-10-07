@@ -3,64 +3,76 @@
 
 uint ConnectionPool::poolCounter = 0;
 
+std::mutex addSocketMutex;
+
 ConnectionPool::ConnectionPool() : poolID(poolCounter++)
 {
+    pthread_t poolThread;
+    SKelegramConnectionPoolData poolData;
+
+    poolData.clientSockets = &registeredSockets;
+    poolData.rawData = &rawData;
+    *poolData.isReady = 0;
+
+    pthread_create(&poolThread, NULL, poolReceiveRoutine, (void *)&poolData);
+
+    while (*poolData.isReady == 0);
 }
 
 void ConnectionPool::addReceiver(int clientSocket)
 {
     ML::log_info(std::string("Client connected from ") + ConnectionPool::getConnectionIPAndPort(clientSocket));
 
-    pthread_t receiverThread;
-    SKelegramConnetion connectionData;
+    // Using mutex for operate with shared data
+    addSocketMutex.lock();
 
-    connectionData.clientSocket = clientSocket;
-    connectionData.rawData = &rawData;
+    registeredSockets.push_back(clientSocket);
 
-    if (pthread_create(&receiverThread, NULL, receiveRoutine, (void *)&connectionData) == 0)
-    {
-        registeredSockets.push_back(clientSocket);
+    addSocketMutex.unlock();
 
-        send(connectionData.clientSocket, &WELCOME_MESSAGE, sizeof(WELCOME_MESSAGE), 0);
-    }
+    send(clientSocket, &WELCOME_MESSAGE, sizeof(WELCOME_MESSAGE), 0);
 }
 
-void *receiveRoutine(void *threadData)
+void *poolReceiveRoutine(void *threadData)
 {
-    SKelegramConnetion connectionData = *(SKelegramConnetion *)threadData;
+    SKelegramConnectionPoolData connectionData = *(SKelegramConnectionPoolData *)threadData;
+
+    *connectionData.isReady = 1;
 
     std::string receivedString;
 
-    char buffer[1];
+    int receivedFlag;
 
-    int receivedFlag,isRunning = 1;
-
-    while (isRunning)
-    {
-        receivedString.clear();
-
-        while (receivedString.find("&(end)&") == std::string::npos && isRunning)
+    while (1)
+    {   
+        for (int currentSocket : *connectionData.clientSockets)
         {
-            if ((receivedFlag = recv(connectionData.clientSocket, &buffer, 1, 0)) > 0)
+            receivedString.clear();
+
+            char buffer[1];
+
+            while (receivedString.find("&(end)&") == std::string::npos && (receivedFlag = recv(currentSocket, &buffer, 1, 0)) > 0)
             {
                 receivedString += buffer[0];
             }
-            else if(receivedFlag == 0)
+
+            // if receivedFlag is 0 -> connection is close
+            // otherwise if receivedString contains end delimiter it's added to the raw data queue
+            if (receivedFlag == 0)
             {
-                isRunning = 0;
                 receivedString = "&(server)&CLOSECONNECTION&(end)&";
             }
+            else if (receivedString.find("&(end)&") != std::string::npos)
+            {
+                SKelegramRawData receivedRawData;
+
+                receivedRawData.rawData = receivedString;
+                receivedRawData.clientSocket = currentSocket;
+
+                connectionData.rawData->push_back(receivedRawData);
+            }
         }
-
-        SKelegramRawData receivedRawData;
-
-        receivedRawData.rawData = receivedString;
-        receivedRawData.clientSocket = connectionData.clientSocket;
-
-        connectionData.rawData->push_back(receivedRawData);
     }
-
-    ML::log_info(std::string("Connection closed for ") + ConnectionPool::getConnectionIPAndPort(connectionData.clientSocket));
 }
 
 void ConnectionPool::broadcastData(std::string rawData)
@@ -90,7 +102,7 @@ std::string ConnectionPool::getConnectionIPAndPort(int socket)
 
 void *testRoutine(void *threadData)
 {
-    std::vector<SKelegramConnetion> *connectionsData = (std::vector<SKelegramConnetion> *)threadData;
+    std::vector<SKelegramConnectionPoolData> *connectionsData = (std::vector<SKelegramConnectionPoolData> *)threadData;
 
     while (1)
     {

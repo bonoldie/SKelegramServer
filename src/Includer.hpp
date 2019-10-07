@@ -16,5 +16,6 @@
 #include <chrono>
 #include <cstring>
 #include <algorithm>
+#include <mutex>
 
 #include "../include/MLogger.hpp"

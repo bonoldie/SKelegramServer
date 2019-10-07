@@ -106,6 +106,7 @@ void *elaborateDataRoutine(void *coreInstance)
                 // FOR NOW IT ONLY BROADCAST INCOMING MESSAGES
             }
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(400));
     }
 };
 

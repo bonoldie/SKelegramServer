@@ -39,10 +39,11 @@ struct SKelegramMessage
 };
 
 // Connection structure to initialize new connection
-struct SKelegramConnetion
+struct SKelegramConnectionPoolData
 {
-    int clientSocket;
+    std::vector<int> * clientSockets;
     std::vector<SKelegramRawData> *rawData;
+    int *isReady;
 };
 
 // Data passed to connection thread pool Broadcaster
@@ -57,7 +58,7 @@ struct BroadcastData
 // Receive Routine
 // It check for incoming message from a given soket
 // Then add it to common incoming messages array
-void *receiveRoutine(void *threadData);
+void *poolReceiveRoutine(void *threadData);
 
 // Useful test routine for connection pools
 void *testRoutine(void *threadData);

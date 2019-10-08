@@ -10,9 +10,9 @@ void SKelegramServer::initialize()
 
     skelegramCore->initialize();
 
-    pthread_t collectorThread, elaboratorThread;
+    pthread_t elaboratorThread;
 
-    pthread_create(&collectorThread, NULL, &rawDataRouterRoutine, (void *)skelegramCore);
+    //pthread_create(&collectorThread, NULL, &rawDataRouterRoutine, (void *)skelegramCore);
     pthread_create(&elaboratorThread, NULL, &elaborateDataRoutine, (void *)skelegramCore);
 
     serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
@@ -64,54 +64,53 @@ void *elaborateDataRoutine(void *coreInstance)
 {
     SKelegramCore *instance = (SKelegramCore *)coreInstance;
 
-    std::vector<SKelegramRawData> *toElaborateData = &instance->toElaborateData;
+    std::vector<SKelegramInstruction> *toElaborateData = &instance->toElaborateData;
 
     while (1)
     {
-
         // Take raw data from connection pool raw data  buffer and add it to toElaborate vector
+        while (instance->connectionPool->rawData.size() > 0)
+        {
+            toElaborateData->push_back(SKelegramCore::parseInstruction(instance->connectionPool->rawData.front()));
 
+            instance->connectionPool->rawData.erase(instance->connectionPool->rawData.begin());
+        }
+
+        // Check for not elaborated data to process
         while (toElaborateData->size() > 0)
         {
-            if (!toElaborateData->front().elaborated)
+            
+            switch (toElaborateData->front().target)
             {
-                if (toElaborateData->front().rawData == "&(server)&CLOSECONNECTION&(end)&" || toElaborateData->front().rawData.find("&(end)&") == std::string::npos)
-                {
-                    toElaborateData->erase(toElaborateData->begin());
+            case SERVER:
+                if(toElaborateData->front().payload == "CONNECTIONCLOSED"){
+                    ML::log_info(std::string("Client disconnected : ") + ConnectionPool::getConnectionIPAndPort(toElaborateData->front().socketFrom));
                 }
-                else
-                {
-                    toElaborateData->front().elaborated = 1;
-                }
+                break;
+            case CHAT:
+                break;
+            case BROADCAST:
+                instance->connectionPool->broadcastData(SKelegramCore::parseRawData(toElaborateData->front()));
+                break;
+            case INVALID:
+                break;
             }
+
+            toElaborateData->erase(toElaborateData->begin());
         }
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(400));
 }
 
+// UNUSED
 void *rawDataRouterRoutine(void *coreInstance)
 {
     SKelegramCore *instance = (SKelegramCore *)coreInstance;
 
-    std::vector<SKelegramRawData> *toElaborateData = &instance->toElaborateData;
+    std::vector<SKelegramInstruction> *toElaborateData = &instance->toElaborateData;
 
-    ML::log_info("Raw data Router initialized on CORE");
+    //ML::log_info("Raw data Router initialized on CORE");
 
     while (1)
     {
-        while (instance->connectionPool->rawData.size() > 0)
-        {
-            toElaborateData->push_back(instance->connectionPool->rawData.front());
-            instance->connectionPool->rawData.erase(instance->connectionPool->rawData.begin());
-        }
-
-        while (toElaborateData->size() > 0)
-        {
-            if (toElaborateData->front().elaborated)
-            {
-                instance->connectionPool->broadcastData(instance->toElaborateData.front().rawData);
-                toElaborateData->erase(toElaborateData->begin());
-            }
-        }
     }
 }

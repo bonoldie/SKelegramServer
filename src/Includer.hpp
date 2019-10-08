@@ -1,3 +1,6 @@
+#ifndef INCLUDER_H
+#define INCLUDER_H
+
 #include <unistd.h>
 #include <array>
 #include <vector>
@@ -17,5 +20,9 @@
 #include <cstring>
 #include <algorithm>
 #include <mutex>
+#include <regex>
+
 
 #include "../include/MLogger.hpp"
+
+#endif

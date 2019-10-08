@@ -21,7 +21,7 @@ ConnectionPool::ConnectionPool()
 void ConnectionPool::addReceiver(int clientSocket)
 {
     ML::log_info(std::string("Client connected : ") + ConnectionPool::getConnectionIPAndPort(clientSocket));
-
+    
     // Using mutex for operate with shared data
     commonMutex.lock();
 
@@ -57,17 +57,14 @@ void *poolReceiveRoutine(void *threadData)
             if ((receivedFlag = recv(currentSocket, &buffer, 1, 0)) == 0)
             {
                 // Sending close connection message to upper layer
-                receivedString = "&(server)&CLOSECONNECTION&(end)&";
+                receivedString = "&(server)&CONNECTIONCLOSED&(end)&";
 
                 // Deleting the socket
                 auto delSockets = std::find(connectionData.clientSockets->begin(), connectionData.clientSockets->end(), currentSocket);
-
                 if (delSockets != connectionData.clientSockets->end())
                 {
                     connectionData.clientSockets->erase(delSockets);
                 }
-
-                ML::log_info(std::string("Client disconnected : ") + ConnectionPool::getConnectionIPAndPort(currentSocket));
             }
             else if (receivedFlag > 0)
             {
@@ -91,18 +88,17 @@ void *poolReceiveRoutine(void *threadData)
                 // Adding to pool common raw data buffer
                 commonMutex.lock();
                 connectionData.rawData->push_back(receivedRawData);
-                commonMutex.unlock();
-                ML::log_info(std::string("Added raw data -> ") + receivedRawData.rawData);
+                commonMutex.unlock();      
             }
         }
     }
 }
 
-void ConnectionPool::broadcastData(std::string rawData)
+void ConnectionPool::broadcastData(SKelegramRawData data)
 {
     for (int clientSocket : registeredSockets)
     {
-        send(clientSocket, rawData.c_str(), strlen(rawData.c_str()), 0);
+        send(clientSocket, data.rawData.c_str(), strlen( data.rawData.c_str()), 0);
     }
 }
 

@@ -11,35 +11,41 @@
 // Dictive type
 enum SKelegramDataTarget
 {
+    // Target various server actions
     SERVER,
-    BROADCAST
-};
-
-struct SKelegramInstruction
-{
-    SKelegramDataTarget target;
-    std::string instruction;
-    std::string value; 
+    // Target to broadcast a message
+    BROADCAST,
+    // Target chat pools
+    CHAT,
+    // Invalid target ... will be discard
+    INVALID
 };
 
 // Low level Data structure
 struct SKelegramRawData
 {
-    // When created raw data is not elaborated 
-    int elaborated = 0;
-
     // Client socket related to the raw data
     int clientSocket;
-
-    // Chat ID define the broadcast range
-    int chatID;
 
     // Raw data contains the incoming data
     // It's encapsulate into a string 
     std::string rawData;
 };
 
+// High level Data structure
+struct SKelegramInstruction
+{
+    // Define the target of the raw message
+    SKelegramDataTarget target;
+
+    // A pair of instruction and value is created for each raw data structure
+    std::string payload;
+
+    int socketFrom;
+};
+
 // High level message Data structure
+// For future storage implementations
 struct SKelegramMessage
 {
     std::string username;
@@ -80,7 +86,7 @@ public:
     // Return a string with format "" IP :: PORT "" of a given socket connection
     static std::string getConnectionIPAndPort(int socket);
 
-    void broadcastData(std::string rawData);
+    void broadcastData(SKelegramRawData data);
 
     std::vector<SKelegramRawData> rawData;
     std::vector<int> registeredSockets;
@@ -104,15 +110,27 @@ public:
     SKelegramCore() = default;
     ~SKelegramCore() = default;
 
+    // Initialize the core
     void initialize();
 
-    std::string elaborateRawData(SKelegramRawData rawData);
+    // Handle incoming connection from a client 
     void handleIncomingConnection(int clientSocket);
 
-    ConnectionPool *connectionPool;
-    std::vector<SKelegramRawData> toElaborateData;
+    // Parse raw data into an higher level data structure
+    // It's used into the elabora Routine 
+    static SKelegramInstruction parseInstruction(SKelegramRawData data);
 
+    // Parse an instruction into raw data structure
+    // It's used into the raw data router Routine 
+    static SKelegramRawData parseRawData(SKelegramInstruction instruction);
+    
+    // Contains instruction that need to be elaborated by the core
+    std::vector<SKelegramInstruction> toElaborateData;
+
+    // UNUSED FOR NOW
     std::map<int,int> socketChatIDs;
+
+    ConnectionPool *connectionPool;
 private:
    
     std::vector<SKelegramMessage> skelegramMessages;

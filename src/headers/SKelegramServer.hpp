@@ -32,8 +32,6 @@ public:
     // It's blocking until any request is rised
     void startAccept();
 
-    ConnectionPool *connectionPool;
-
 private:
     int serverSocketFD;
     SOCKETADDRIN listeningAddress;

@@ -2,12 +2,7 @@
 
 void SKelegramCore::initialize()
 {
-    pthread_t elaborateRoutine;
-}
-
-void SKelegramCore::registerConnectionPool(ConnectionPool *connectionPool)
-{
-    connectionPools.push_back(connectionPool);
+    connectionPool = new ConnectionPool;
 }
 
 std::string SKelegramCore::elaborateRawData(SKelegramRawData skelegramRawData)
@@ -20,12 +15,5 @@ std::string SKelegramCore::elaborateRawData(SKelegramRawData skelegramRawData)
 
 void SKelegramCore::handleIncomingConnection(int clientSocket)
 {
-    if (connectionPools.size() > 0)
-    {
-        connectionPools.front()->addReceiver(clientSocket);
-    }
-    else
-    {
-        ML::log_warning("Cannot handle incoming connection request. No pools available!");
-    }
+    connectionPool->addReceiver(clientSocket);
 }

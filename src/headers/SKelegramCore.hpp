@@ -9,25 +9,34 @@
 // This section contains all the structures that are used in SKelegramServer
 
 // Dictive type
-enum Directive
+enum SKelegramDataTarget
 {
     SERVER,
     BROADCAST
 };
 
+struct SKelegramInstruction
+{
+    SKelegramDataTarget target;
+    std::string instruction;
+    std::string value; 
+};
+
 // Low level Data structure
 struct SKelegramRawData
 {
-       int clientSocket;
-    std::string rawData;
-};
-
-// Medium level Data structure
-struct SKelegramData
-{
+    // When created raw data is not elaborated 
     int elaborated = 0;
-    unsigned int connectionPoolID;
-    SKelegramRawData data;
+
+    // Client socket related to the raw data
+    int clientSocket;
+
+    // Chat ID define the broadcast range
+    int chatID;
+
+    // Raw data contains the incoming data
+    // It's encapsulate into a string 
+    std::string rawData;
 };
 
 // High level message Data structure
@@ -38,19 +47,12 @@ struct SKelegramMessage
     std::time_t dateTime;
 };
 
-// Connection structure to initialize new connection
+// Connection structure to initialize the connection pool
 struct SKelegramConnectionPoolData
 {
     std::vector<int> * clientSockets;
     std::vector<SKelegramRawData> *rawData;
     int *isReady;
-};
-
-// Data passed to connection thread pool Broadcaster
-struct BroadcastData
-{
-    int *isThreadReady;
-    std::vector<SKelegramRawData> *broadcastRawData;
 };
 
 // SKelegramCore DEFINITIONS
@@ -82,8 +84,6 @@ public:
 
     std::vector<SKelegramRawData> rawData;
     std::vector<int> registeredSockets;
-    static uint poolCounter;
-    const uint poolID;
 
 private:
     pthread_t broadcastThread;
@@ -107,13 +107,14 @@ public:
     void initialize();
 
     std::string elaborateRawData(SKelegramRawData rawData);
-    void registerConnectionPool(ConnectionPool *connectionPool);
     void handleIncomingConnection(int clientSocket);
 
-    std::vector<ConnectionPool *> connectionPools;
-    
-    std::vector<SKelegramData> queuedData;
+    ConnectionPool *connectionPool;
+    std::vector<SKelegramRawData> toElaborateData;
+
+    std::map<int,int> socketChatIDs;
 private:
+   
     std::vector<SKelegramMessage> skelegramMessages;
 };
 

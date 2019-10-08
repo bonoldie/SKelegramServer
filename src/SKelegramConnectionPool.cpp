@@ -1,11 +1,9 @@
 #include "./headers/SKelegramCore.hpp"
 #define WELCOME_MESSAGE " ################################# \n # Welcome in SKelegram chat :) # \n ################################# \n"
 
-uint ConnectionPool::poolCounter = 0;
+std::mutex commonMutex;
 
-std::mutex addSocketMutex;
-
-ConnectionPool::ConnectionPool() : poolID(poolCounter++)
+ConnectionPool::ConnectionPool()
 {
     pthread_t poolThread;
     SKelegramConnectionPoolData poolData;
@@ -16,19 +14,20 @@ ConnectionPool::ConnectionPool() : poolID(poolCounter++)
 
     pthread_create(&poolThread, NULL, poolReceiveRoutine, (void *)&poolData);
 
-    while (*poolData.isReady == 0);
+    while (*poolData.isReady == 0)
+        ;
 }
 
 void ConnectionPool::addReceiver(int clientSocket)
 {
-    ML::log_info(std::string("Client connected from ") + ConnectionPool::getConnectionIPAndPort(clientSocket));
+    ML::log_info(std::string("Client connected : ") + ConnectionPool::getConnectionIPAndPort(clientSocket));
 
     // Using mutex for operate with shared data
-    addSocketMutex.lock();
+    commonMutex.lock();
 
     registeredSockets.push_back(clientSocket);
 
-    addSocketMutex.unlock();
+    commonMutex.unlock();
 
     send(clientSocket, &WELCOME_MESSAGE, sizeof(WELCOME_MESSAGE), 0);
 }
@@ -44,32 +43,60 @@ void *poolReceiveRoutine(void *threadData)
     int receivedFlag;
 
     while (1)
-    {   
-        for (int currentSocket : *connectionData.clientSockets)
+    {
+        commonMutex.lock();
+        std::vector<int> sockets = *connectionData.clientSockets;
+        commonMutex.unlock();
+
+        for (int currentSocket : sockets)
         {
             receivedString.clear();
 
             char buffer[1];
 
-            while (receivedString.find("&(end)&") == std::string::npos && (receivedFlag = recv(currentSocket, &buffer, 1, 0)) > 0)
+            if ((receivedFlag = recv(currentSocket, &buffer, 1, 0)) == 0)
+            {
+                // Sending close connection message to upper layer
+                receivedString = "&(server)&CLOSECONNECTION&(end)&";
+
+                // Deleting the socket
+                auto delSockets = std::find(connectionData.clientSockets->begin(), connectionData.clientSockets->end(), currentSocket);
+
+                if (delSockets != connectionData.clientSockets->end())
+                {
+                    connectionData.clientSockets->erase(delSockets);
+                }
+
+                ML::log_info(std::string("Client disconnected : ") + ConnectionPool::getConnectionIPAndPort(currentSocket));
+            }
+            else if (receivedFlag > 0)
             {
                 receivedString += buffer[0];
+
+                while (receivedString.find("&(end)&") == std::string::npos && receivedFlag != 0)
+                {
+                    
+                    if ((receivedFlag = recv(currentSocket, &buffer, 1, 0)) > 0)
+                    {
+                        receivedString += buffer[0];
+                    }
+                }
             }
 
             // if receivedFlag is 0 -> connection is close
             // otherwise if receivedString contains end delimiter it's added to the raw data queue
-            if (receivedFlag == 0)
+            if (receivedString.find("&(end)&") != std::string::npos ) 
             {
-                receivedString = "&(server)&CLOSECONNECTION&(end)&";
-            }
-            else if (receivedString.find("&(end)&") != std::string::npos)
-            {
+                // Setup new raw data 
                 SKelegramRawData receivedRawData;
-
                 receivedRawData.rawData = receivedString;
                 receivedRawData.clientSocket = currentSocket;
 
+                // Adding to pool common raw data buffer 
+                commonMutex.lock();
                 connectionData.rawData->push_back(receivedRawData);
+                commonMutex.unlock();
+                ML::log_info(std::string("Added raw data -> ") + receivedRawData.rawData); 
             }
         }
     }

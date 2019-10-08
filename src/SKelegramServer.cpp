@@ -10,10 +10,6 @@ void SKelegramServer::initialize()
 
     skelegramCore->initialize();
 
-    connectionPool = new ConnectionPool();
-
-    skelegramCore->registerConnectionPool(connectionPool);
-
     pthread_t collectorThread, elaboratorThread;
 
     pthread_create(&collectorThread, NULL, &rawDataRouterRoutine, (void *)skelegramCore);
@@ -50,12 +46,6 @@ int SKelegramServer::bindAndListen()
 
 void SKelegramServer::startAccept()
 {
-    ServerRoutineData serverData;
-    serverData.connectionPool = connectionPool;
-    serverData.skelegramCore = skelegramCore;
-
-    //pthread_create(&serverRoutineThread, NULL, serverRoutine, (void *)&serverData);
-
     int addressSize = sizeof(listeningAddress);
     while (1)
     {
@@ -74,80 +64,49 @@ void *elaborateDataRoutine(void *coreInstance)
 {
     SKelegramCore *instance = (SKelegramCore *)coreInstance;
 
-    std::vector<SKelegramData> *toElaborateData = &instance->queuedData;
+    std::vector<SKelegramRawData> *toElaborateData = &instance->toElaborateData;
 
     while (1)
     {
-        if (toElaborateData->size() > 0)
+        while (instance->connectionPool->rawData.size() > 0)
+        {
+            toElaborateData->push_back(instance->connectionPool->rawData.front());
+            instance->connectionPool->rawData.erase(instance->connectionPool->rawData.begin());
+        }
+
+        // Take raw data from connection pool raw data  buffer and add it to toElaborate vector
+
+        while (toElaborateData->size() > 0)
         {
             if (!toElaborateData->front().elaborated)
             {
-                if (toElaborateData->front().data.rawData == "&(server)&CLOSECONNECTION&(end)&")
+                if (toElaborateData->front().rawData == "&(server)&CLOSECONNECTION&(end)&" || toElaborateData->front().rawData.find("&(end)&") == std::string::npos)
                 {
-                    for (ConnectionPool *connectionPool : instance->connectionPools)
-                    {
-                        if (connectionPool->poolID == toElaborateData->front().connectionPoolID)
-                        {
-                            auto regSockets = std::find(connectionPool->registeredSockets.begin(), connectionPool->registeredSockets.end(), toElaborateData->front().data.clientSocket);
-
-                            if (regSockets != connectionPool->registeredSockets.end())
-                            {
-                                connectionPool->registeredSockets.erase(regSockets);
-                            }
-                        }
-                    }
                     toElaborateData->erase(toElaborateData->begin());
                 }
                 else
                 {
                     toElaborateData->front().elaborated = 1;
                 }
-
-                // FOR NOW IT ONLY BROADCAST INCOMING MESSAGES
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(400));
+
+        while(toElaborateData->size() > 0){
+            if (!toElaborateData->front().elaborated){
+                instance->connectionPool->broadcastData(instance->toElaborateData.front().rawData);
+                toElaborateData->erase(toElaborateData->begin());
+            }
+        }
     }
-};
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+}
 
 void *rawDataRouterRoutine(void *coreInstance)
 {
     SKelegramCore *instance = (SKelegramCore *)coreInstance;
 
+    std::vector<SKelegramRawData> *toElaborateData = &instance->toElaborateData;
+
     ML::log_info("Raw data Router initialized on CORE");
 
-    while (1)
-    {
-        for (ConnectionPool *connectionPool : instance->connectionPools)
-        {
-            if (connectionPool->rawData.size() > 0)
-            {
-                //ML::log_info(std::string("Data incoming from") + std::to_string(connectionPool->poolID) + std::string(" : ") + connectionPool->rawData.front().rawData);
-                SKelegramData skRawData;
-                skRawData.connectionPoolID = connectionPool->poolID;
-                skRawData.data = connectionPool->rawData.front();
-
-                instance->queuedData.push_back(skRawData);
-
-                connectionPool->rawData.erase(connectionPool->rawData.begin());
-            }
-        }
-
-        if (instance->queuedData.size() > 0)
-        {
-            if (instance->queuedData.front().elaborated)
-            {
-                for (ConnectionPool *connectionPool : instance->connectionPools)
-                {
-                    if (connectionPool->poolID == instance->queuedData.front().connectionPoolID)
-                    {
-                        //ML::log_info(std::string("Data incoming from") + std::to_string(connectionPool->poolID) + std::string(" : ") + connectionPool->rawData.front().rawData);
-                        connectionPool->broadcastData(instance->queuedData.front().data.rawData);
-
-                        instance->queuedData.erase(instance->queuedData.begin());
-                    }
-                }
-            }
-        }
-    }
 }

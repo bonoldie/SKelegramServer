@@ -73,30 +73,26 @@ void *poolReceiveRoutine(void *threadData)
             {
                 receivedString += buffer[0];
 
-                while (receivedString.find("&(end)&") == std::string::npos && receivedFlag != 0)
+                while (receivedString.find("&(end)&") == std::string::npos && (receivedFlag = recv(currentSocket, &buffer, 1, 0)) > 0)
                 {
-                    
-                    if ((receivedFlag = recv(currentSocket, &buffer, 1, 0)) > 0)
-                    {
-                        receivedString += buffer[0];
-                    }
+                    receivedString += buffer[0];
                 }
             }
 
             // if receivedFlag is 0 -> connection is close
             // otherwise if receivedString contains end delimiter it's added to the raw data queue
-            if (receivedString.find("&(end)&") != std::string::npos ) 
+            if (receivedString.find("&(end)&") != std::string::npos)
             {
-                // Setup new raw data 
+                // Setup new raw data
                 SKelegramRawData receivedRawData;
                 receivedRawData.rawData = receivedString;
                 receivedRawData.clientSocket = currentSocket;
 
-                // Adding to pool common raw data buffer 
+                // Adding to pool common raw data buffer
                 commonMutex.lock();
                 connectionData.rawData->push_back(receivedRawData);
                 commonMutex.unlock();
-                ML::log_info(std::string("Added raw data -> ") + receivedRawData.rawData); 
+                ML::log_info(std::string("Added raw data -> ") + receivedRawData.rawData);
             }
         }
     }

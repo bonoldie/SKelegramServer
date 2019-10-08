@@ -68,11 +68,6 @@ void *elaborateDataRoutine(void *coreInstance)
 
     while (1)
     {
-        while (instance->connectionPool->rawData.size() > 0)
-        {
-            toElaborateData->push_back(instance->connectionPool->rawData.front());
-            instance->connectionPool->rawData.erase(instance->connectionPool->rawData.begin());
-        }
 
         // Take raw data from connection pool raw data  buffer and add it to toElaborate vector
 
@@ -90,13 +85,6 @@ void *elaborateDataRoutine(void *coreInstance)
                 }
             }
         }
-
-        while(toElaborateData->size() > 0){
-            if (!toElaborateData->front().elaborated){
-                instance->connectionPool->broadcastData(instance->toElaborateData.front().rawData);
-                toElaborateData->erase(toElaborateData->begin());
-            }
-        }
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(400));
 }
@@ -109,4 +97,21 @@ void *rawDataRouterRoutine(void *coreInstance)
 
     ML::log_info("Raw data Router initialized on CORE");
 
+    while (1)
+    {
+        while (instance->connectionPool->rawData.size() > 0)
+        {
+            toElaborateData->push_back(instance->connectionPool->rawData.front());
+            instance->connectionPool->rawData.erase(instance->connectionPool->rawData.begin());
+        }
+
+        while (toElaborateData->size() > 0)
+        {
+            if (toElaborateData->front().elaborated)
+            {
+                instance->connectionPool->broadcastData(instance->toElaborateData.front().rawData);
+                toElaborateData->erase(toElaborateData->begin());
+            }
+        }
+    }
 }

@@ -10,6 +10,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
 #include <string>
 #include <map>
 #include <tuple>
@@ -21,6 +22,7 @@
 #include <algorithm>
 #include <mutex>
 #include <regex>
+#include <poll.h>
 
 
 #include "../include/MLogger.hpp"

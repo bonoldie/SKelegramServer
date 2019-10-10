@@ -14,5 +14,9 @@ int main()
 
     skelegramServer->startAccept();
 
+    while(1){
+
+    }
+    
     return 0;
 }

@@ -3,92 +3,141 @@
 
 std::mutex commonMutex;
 
-ConnectionPool::ConnectionPool()
+ConnectionPool::ConnectionPool(int listenSocket, SOCKETADDRIN listenAddress)
 {
     pthread_t poolThread;
     SKelegramConnectionPoolData poolData;
 
     poolData.clientSockets = &registeredSockets;
     poolData.rawData = &rawData;
+
+    poolData.isReady = (int *)malloc(sizeof(int));
+    poolData.listenSocket = (int *)malloc(sizeof(int));
+    poolData.listenAddress = (SOCKETADDRIN *)malloc(sizeof(SOCKETADDRIN));
+
     *poolData.isReady = 0;
+    *poolData.listenSocket = listenSocket;
+    *poolData.listenAddress = listenAddress;
 
     pthread_create(&poolThread, NULL, poolReceiveRoutine, (void *)&poolData);
 
-    while (*poolData.isReady == 0)
-        ;
+    while (*poolData.isReady == 0);
 }
 
 void ConnectionPool::addReceiver(int clientSocket)
 {
-    ML::log_info(std::string("Client connected : ") + ConnectionPool::getConnectionIPAndPort(clientSocket));
-    
-    // Using mutex for operate with shared data
-    commonMutex.lock();
 
-    registeredSockets.push_back(clientSocket);
-
-    commonMutex.unlock();
-
-    send(clientSocket, &WELCOME_MESSAGE, sizeof(WELCOME_MESSAGE), 0);
 }
 
 void *poolReceiveRoutine(void *threadData)
 {
+    int fdsCounter, listenSocket, pollValue;
+    SOCKETADDRIN listenAddress;
+    size_t listenAddressSize;
+
+    // Cast to correct type
     SKelegramConnectionPoolData connectionData = *(SKelegramConnectionPoolData *)threadData;
+
+    // Retrive server socket to handle
+    listenSocket = *connectionData.listenSocket;
+    listenAddress = *connectionData.listenAddress;
+    listenAddressSize = sizeof(listenAddress);
 
     *connectionData.isReady = 1;
 
-    std::string receivedString;
+    fcntl(listenSocket, F_SETFL, O_NONBLOCK);
 
-    int receivedFlag;
+    std::map<int, std::string> rawPartialData;
+
+    // Set up fds for polling
+    pollfd fds[MAXCONNECTIONS];
+    pollfd listenPollFD;
+
+    listenPollFD.fd = listenSocket;
+    listenPollFD.events = POLLIN;
+
+    fds[0] = listenPollFD;
+
+    fdsCounter = 1;
 
     while (1)
     {
-        commonMutex.lock();
-        std::vector<int> sockets = *connectionData.clientSockets;
-        commonMutex.unlock();
+        pollValue = poll(fds, fdsCounter, -1);
 
-        for (int currentSocket : sockets)
+        // Poll has changed state
+        if (pollValue > 0)
         {
-            receivedString.clear();
-
-            char buffer[1];
-
-            if ((receivedFlag = recv(currentSocket, &buffer, 1, 0)) == 0)
+            for (int fdIndex = 0; fdIndex < fdsCounter; fdIndex++)
             {
-                // Sending close connection message to upper layer
-                receivedString = "&(server)&CONNECTIONCLOSED&(end)&";
-
-                // Deleting the socket
-                auto delSockets = std::find(connectionData.clientSockets->begin(), connectionData.clientSockets->end(), currentSocket);
-                if (delSockets != connectionData.clientSockets->end())
+                // If the event is setted on the server socket it means a new connection is coming
+                if (fds[fdIndex].fd == listenSocket && fds[fdIndex].revents == POLLIN)
                 {
-                    connectionData.clientSockets->erase(delSockets);
+                    int newClientSocket = accept(listenSocket, (struct sockaddr *)&listenAddress, (socklen_t *)&listenAddressSize);
+
+                    pollfd newConnectionFD;
+
+                    newConnectionFD.fd = newClientSocket;
+                    newConnectionFD.events = POLLIN;
+
+                    fds[fdsCounter] = newConnectionFD;
+
+                    rawPartialData[newClientSocket] = "&(server)&CLIENTCONNECTED&(end)&";
+
+                    ML::log_info(std::string("Client connection from ") + ConnectionPool::getConnectionIPAndPort(newClientSocket));
+
+
+
+                    fdsCounter++;
+                }
+                // Else it checks connections FD and find who rise the poll
+                else
+                {
+                    // There is data to read
+                    if (fds[fdIndex].revents == POLLIN)
+                    {
+                        int readState;
+                        char buffer[1];
+
+                        if ((readState = read(fds[fdIndex].fd, &buffer, 1)) > 0)
+                        {
+                            rawPartialData[fds[fdIndex].fd] += buffer;
+
+                            ML::log_info(std::string("received from client  : ") + rawPartialData[fds[fdIndex].fd]);
+                        }
+                        // If readState is 0 it means socket is closed so we clean out the socket
+                        else if (readState == 0)
+                        {
+                            ML::log_info(std::string("Connection closed : ") + ConnectionPool::getConnectionIPAndPort(fds[fdIndex].fd));
+
+                            rawPartialData[fds[fdIndex].fd] = "&(server)&CONNECTIONCLOSED&(end)&";
+
+                            rawPartialData.erase(fds[fdIndex].fd);
+                            close(fds[fdIndex].fd);
+                            fds[fdIndex] = fds[fdsCounter--];
+
+                            pollfd nullPoll;
+                            fds[fdsCounter] = nullPoll;
+
+                            
+                        }
+                    }
                 }
             }
-            else if (receivedFlag > 0)
+        }
+
+        for (std::map<int, std::string>::iterator rawDataIterator = rawPartialData.begin(); rawDataIterator != rawPartialData.end(); rawDataIterator++)
+        {
+            if (rawDataIterator->second.find("&(end)&") != std::string::npos)
             {
-                receivedString += buffer[0];
+                SKelegramRawData rawData;
+                rawData.rawData = rawDataIterator->second;
+                rawData.clientSocket = rawDataIterator->first;
 
-                while (receivedString.find("&(end)&") == std::string::npos && (receivedFlag = recv(currentSocket, &buffer, 1, 0)) > 0)
-                {
-                    receivedString += buffer[0];
-                }
-            }
-
-            // if receivedFlag is 0 -> connection is close
-            // otherwise if receivedString contains end delimiter it's added to the raw data queue
-            if (receivedString.find("&(end)&") != std::string::npos)
-            {
-                // Setup new raw data
-                SKelegramRawData receivedRawData;
-                receivedRawData.rawData = receivedString;
-                receivedRawData.clientSocket = currentSocket;
-
-                // Adding to pool common raw data buffer
                 commonMutex.lock();
-                connectionData.rawData->push_back(receivedRawData);
-                commonMutex.unlock();      
+                connectionData.rawData->push_back(rawData);
+                commonMutex.unlock();
+
+                rawDataIterator->second = "";
             }
         }
     }
@@ -98,7 +147,7 @@ void ConnectionPool::broadcastData(SKelegramRawData data)
 {
     for (int clientSocket : registeredSockets)
     {
-        send(clientSocket, data.rawData.c_str(), strlen( data.rawData.c_str()), 0);
+        send(clientSocket, data.rawData.c_str(), strlen(data.rawData.c_str()), 0);
     }
 }
 

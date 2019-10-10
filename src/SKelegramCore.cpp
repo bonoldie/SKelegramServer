@@ -1,8 +1,8 @@
 #include "./headers/SKelegramCore.hpp"
 
-void SKelegramCore::initialize()
+void SKelegramCore::initialize(int serverSocket,SOCKETADDRIN serverAddress)
 {
-    connectionPool = new ConnectionPool;
+    connectionPool = new ConnectionPool(serverSocket,serverAddress);
 }
 
 void SKelegramCore::handleIncomingConnection(int clientSocket)
@@ -12,14 +12,10 @@ void SKelegramCore::handleIncomingConnection(int clientSocket)
 
 SKelegramInstruction SKelegramCore::parseInstruction(SKelegramRawData data)
 {
+    ML::log_info(data.rawData);
     SKelegramInstruction skInstruction;
 
     skInstruction.socketFrom = data.clientSocket;
-
-    //skInstruction.target = BROADCAST;
-    //skInstruction.payload = data.rawData;
-
-    //return skInstruction;
 
     std::string directiveRegexString("[^\\&\\(]+(?=\\)\\&)");
     std::regex directivesRegex(directiveRegexString);

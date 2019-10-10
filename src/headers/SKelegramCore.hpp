@@ -3,6 +3,8 @@
 
 #include "../Includer.hpp"
 
+typedef struct sockaddr_in SOCKETADDRIN;
+
 #define MAXCONNECTIONS 8
 
 // STRUCTURES
@@ -56,6 +58,9 @@ struct SKelegramMessage
 // Connection structure to initialize the connection pool
 struct SKelegramConnectionPoolData
 {
+    int *listenSocket;
+    SOCKETADDRIN *listenAddress;
+    
     std::vector<int> * clientSockets;
     std::vector<SKelegramRawData> *rawData;
     int *isReady;
@@ -76,7 +81,7 @@ void *testRoutine(void *threadData);
 class ConnectionPool
 {
 public:
-    ConnectionPool();
+    ConnectionPool(int listenSocket,SOCKETADDRIN listenAddress);
     ~ConnectionPool() = default;
 
     // Start a new thread for handle a new connection for a give socket.
@@ -111,7 +116,7 @@ public:
     ~SKelegramCore() = default;
 
     // Initialize the core
-    void initialize();
+    void initialize(int serverSocket,SOCKETADDRIN serverAddress);
 
     // Handle incoming connection from a client 
     void handleIncomingConnection(int clientSocket);

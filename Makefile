@@ -1,4 +1,4 @@
-CC := g++
+CC := g++ -g
 CFLAGS := -Wfatal-errors -std=c++17
 LFLAGS := -ldl -lMLogger  -lpthread
 

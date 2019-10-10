@@ -6,8 +6,6 @@
 
 #define DEFAULT_PORT 45678
 
-typedef struct sockaddr_in SOCKETADDRIN;
-
 struct ServerRoutineData
 {
     ConnectionPool *connectionPool;
@@ -34,7 +32,7 @@ public:
 
 private:
     int serverSocketFD;
-    SOCKETADDRIN listeningAddress;
+    SOCKETADDRIN listenAddress;
     SKelegramCore *skelegramCore;
     int port;
     pthread_t serverRoutineThread;

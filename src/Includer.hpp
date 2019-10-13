@@ -24,7 +24,6 @@
 #include <regex>
 #include <poll.h>
 
-
 #include "../include/MLogger.hpp"
 
 #endif

@@ -3,6 +3,7 @@
 
 #include "../Includer.hpp"
 #include "./SKelegramCore.hpp"
+#include "./SKelegramLogger.hpp"
 
 #define DEFAULT_PORT 45678
 

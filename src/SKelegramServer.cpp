@@ -64,21 +64,22 @@ void *elaborateDataRoutine(void *coreInstance)
             switch (toElaborateData->front().target)
             {
             case SERVER:
+                SKL::log_info(toElaborateData->front().socketFrom, toElaborateData->front().payload);
+
                 if (toElaborateData->front().payload == "CONNECTIONCLOSED")
                 {
-                    // DA CONTROLLARE MA SONO STANCO :))))))
-                    for (std::vector<int>::iterator socketIt = instance->connectionPool->registeredSockets.begin(); socketIt != instance->connectionPool->registeredSockets.end(); socketIt++)
+                    for (int socketReg = 0; socketReg < instance->connectionPool->registeredSockets.size(); socketReg++)
                     {
-                        if (*socketIt == toElaborateData->front().socketFrom)
+                        if (instance->connectionPool->registeredSockets[socketReg] == toElaborateData->front().socketFrom)
                         {
-                            instance->connectionPool->registeredSockets.erase(socketIt);
-                            ML::log_info(std::string("Client disconnected : ") + ConnectionPool::getConnectionIPAndPort(toElaborateData->front().socketFrom));
+                            instance->connectionPool->registeredSockets[socketReg] = instance->connectionPool->registeredSockets[instance->connectionPool->socketsCounter--];
                         }
                     }
                 }
                 if (toElaborateData->front().payload == "CLIENTCONNECTED")
                 {
-                    instance->connectionPool->registeredSockets.push_back(toElaborateData->front().socketFrom);
+                    instance->connectionPool->registeredSockets[instance->connectionPool->socketsCounter] = toElaborateData->front().socketFrom;
+                    instance->connectionPool->socketsCounter++;
                 }
 
                 break;
@@ -88,6 +89,7 @@ void *elaborateDataRoutine(void *coreInstance)
                 instance->connectionPool->broadcastData(SKelegramCore::parseRawData(toElaborateData->front()));
                 break;
             case INVALID:
+                SKL::log_error(toElaborateData->front().socketFrom, toElaborateData->front().payload);
                 break;
             }
             toElaborateData->erase(toElaborateData->begin());

@@ -5,6 +5,11 @@
 
 typedef struct sockaddr_in SOCKETADDRIN;
 
+// DEFINE THE RAW DATA ACCEPTED FORMAT
+// By index : 0 -> FULL MATCH (TO IGNORE)
+//            1 -> TARGET
+//            2 -> PAYLOAD
+#define RAWDATAFORMATREGEX "(?:\\&\\((.*?)\\)\\&)(.*?)(?:\\&\\(end\\)\\&)"
 #define MAXCONNECTIONS 8
 
 // STRUCTURES
@@ -61,7 +66,7 @@ struct SKelegramConnectionPoolData
     int *listenSocket;
     SOCKETADDRIN *listenAddress;
     
-    std::vector<int> * clientSockets;
+    std::array<int,MAXCONNECTIONS> * clientSockets;
     std::vector<SKelegramRawData> *rawData;
     int *isReady;
 };
@@ -94,8 +99,8 @@ public:
     void broadcastData(SKelegramRawData data);
 
     std::vector<SKelegramRawData> rawData;
-    std::vector<int> registeredSockets;
-
+    std::array<int,MAXCONNECTIONS> registeredSockets;
+    int socketsCounter;
 private:
     pthread_t broadcastThread;
 };

@@ -5,6 +5,7 @@ std::mutex commonMutex;
 
 ConnectionPool::ConnectionPool(int listenSocket, SOCKETADDRIN listenAddress)
 {
+    socketsCounter = 1;
     pthread_t poolThread;
     SKelegramConnectionPoolData poolData;
 
@@ -83,13 +84,9 @@ void *poolReceiveRoutine(void *threadData)
 
                     rawPartialData[newClientSocket] = "&(server)&CLIENTCONNECTED&(end)&";
 
-                    ML::log_info(std::string("Client connection from ") + ConnectionPool::getConnectionIPAndPort(newClientSocket));
-
-
-
                     fdsCounter++;
                 }
-                // Else it checks connections FD and find who rise the poll
+                // Else check connections FD and find who rise the poll
                 else
                 {
                     // There is data to read
@@ -101,24 +98,17 @@ void *poolReceiveRoutine(void *threadData)
                         if ((readState = read(fds[fdIndex].fd, &buffer, 1)) > 0)
                         {
                             rawPartialData[fds[fdIndex].fd] += buffer;
-
-                            ML::log_info(std::string("received from client  : ") + rawPartialData[fds[fdIndex].fd]);
                         }
                         // If readState is 0 it means socket is closed so we clean out the socket
                         else if (readState == 0)
                         {
-                            ML::log_info(std::string("Connection closed : ") + ConnectionPool::getConnectionIPAndPort(fds[fdIndex].fd));
-
                             rawPartialData[fds[fdIndex].fd] = "&(server)&CONNECTIONCLOSED&(end)&";
 
-                            rawPartialData.erase(fds[fdIndex].fd);
                             close(fds[fdIndex].fd);
                             fds[fdIndex] = fds[fdsCounter--];
 
                             pollfd nullPoll;
                             fds[fdsCounter] = nullPoll;
-
-                            
                         }
                     }
                 }
@@ -145,9 +135,8 @@ void *poolReceiveRoutine(void *threadData)
 
 void ConnectionPool::broadcastData(SKelegramRawData data)
 {
-    for (int clientSocket : registeredSockets)
-    {
-        send(clientSocket, data.rawData.c_str(), strlen(data.rawData.c_str()), 0);
+    for(int clientSocketIndex = 0;clientSocketIndex < socketsCounter ;clientSocketIndex++){
+        send(registeredSockets[clientSocketIndex], data.rawData.c_str(), strlen(data.rawData.c_str()), 0);
     }
 }
 

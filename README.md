@@ -7,4 +7,4 @@ C++11 + Sockets + POSIX threads = :heart:
 
 Began as a little school project...
 
-It'll became anything more? ( Hoping so :smile: )
+Will it become something more? ( Hoping so :smile: )
